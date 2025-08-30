@@ -1,0 +1,121 @@
+/* Kiro Theme CSS */
+:root {
+    --kiro-primary: #2563eb;
+    --kiro-secondary: #64748b;
+    --kiro-background: #0f172a;
+    --kiro-surface: #1e293b;
+    --kiro-text: #f8fafc;
+    --kiro-text-secondary: #cbd5e1;
+    --kiro-accent: #06b6d4;
+    --kiro-success: #10b981;
+    --kiro-warning: #f59e0b;
+    --kiro-error: #ef4444;
+    --kiro-border: #334155;
+}
+
+/* Main app styling */
+.stApp {
+    background-color: var(--kiro-background);
+    color: var(--kiro-text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Sidebar styling */
+.css-1d391kg, .css-1cypcdb {
+    background-color: var(--kiro-surface);
+    border-right: 1px solid var(--kiro-border);
+}
+
+/* Header styling */
+.main-header {
+    background: linear-gradient(135deg, var(--kiro-primary), var(--kiro-accent));
+    padding: 2rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.main-header h1 {
+    color: white;
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.main-header p {
+    color: rgba(255,255,255,0.9);
+    font-size: 1.1rem;
+    margin: 0.5rem 0 0 0;
+}
+
+/* Button styling */
+.stButton > button {
+    background: linear-gradient(135deg, var(--kiro-primary), #1d4ed8);
+    color: var(--kiro-text);
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+}.stButt
+on > button:hover {
+    background: linear-gradient(135deg, #1d4ed8, var(--kiro-primary));
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+/* Text input styling */
+.stTextInput > div > div > input, .stTextArea > div > div > textarea {
+    background-color: var(--kiro-surface);
+    color: var(--kiro-text);
+    border: 2px solid var(--kiro-border);
+    border-radius: 8px;
+    padding: 0.75rem;
+}
+
+/* Chat message styling */
+.chat-message {
+    padding: 1.5rem;
+    margin: 1rem 0;
+    border-radius: 12px;
+    background-color: var(--kiro-surface);
+    border-left: 4px solid var(--kiro-accent);
+}
+
+.chat-message.user {
+    background: linear-gradient(135deg, var(--kiro-primary), #1d4ed8);
+    border-left-color: var(--kiro-text);
+    color: white;
+}
+
+/* Metric styling */
+.metric-container {
+    background: linear-gradient(135deg, var(--kiro-surface), #334155);
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid var(--kiro-border);
+    text-align: center;
+}
+
+.metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--kiro-accent);
+}
+
+/* Status indicators */
+.status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+}
+
+.status-connected {
+    background-color: var(--kiro-success);
+}
+
+.status-disconnected {
+    background-color: var(--kiro-error);
+}
