@@ -792,6 +792,6 @@ def parse_tasks_from_markdown(tasks_content):
         tasks.append(current_task)
     
     return tasks
-if __n
-ame__ == "__main__":
+
+if __name__ == "__main__":
     main()
