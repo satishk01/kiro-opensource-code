@@ -151,42 +151,54 @@ Focus on:
             self.logger.error(f"Design generation failed: {e}")
             raise e
     
-    def create_task_list(self, design: str, requirements: str = None) -> List[Dict]:
-        """Generate implementation tasks from design document"""
+    def create_task_list(self, design: str, requirements: str = None) -> str:
+        """Generate implementation tasks from design document in Kiro markdown format"""
         
         requirements_context = ""
         if requirements:
             requirements_context = f"\n\nRequirements Context:\n{requirements[:1000]}..."
         
-        tasks_prompt = f"""Convert this design into actionable implementation tasks:
+        tasks_prompt = f"""Convert this design into actionable implementation tasks in Kiro markdown format:
 
 {design}
 {requirements_context}
 
-Generate tasks as a JSON array with this structure:
-[
-  {{
-    "id": "1",
-    "title": "Task title",
-    "description": "Detailed task description",
-    "type": "implementation|testing|documentation",
-    "priority": "high|medium|low",
-    "estimated_hours": 4,
-    "requirements_refs": ["1.1", "2.3"],
-    "dependencies": [],
-    "acceptance_criteria": [
-      "Specific criteria for task completion"
-    ]
-  }}
-]
+Generate tasks using this EXACT format:
+
+# Implementation Plan
+
+- [ ] 1. Main task title
+  - [ ] 1.1 Sub-task title
+    - Detailed description of what needs to be implemented
+    - Specific files or components to create/modify
+    - Technical implementation details
+    - _Requirements: 1.1, 2.3_
+
+  - [ ] 1.2 Another sub-task title
+    - Implementation details
+    - Code changes needed
+    - _Requirements: 2.1_
+
+- [ ] 2. Second main task title
+  - [ ] 2.1 Sub-task for second main task
+    - Implementation details
+    - _Requirements: 3.1_
+
+IMPORTANT FORMATTING RULES:
+- Use "- [ ]" for unchecked tasks (not "- [x]")
+- Use hierarchical numbering (1, 1.1, 1.2, 2, 2.1, etc.)
+- Include requirement references as "_Requirements: X.X, Y.Y_"
+- Add detailed implementation descriptions under each task
+- Focus ONLY on coding tasks that involve writing, modifying, or testing code
+- Each task should build incrementally on previous tasks
+- Maximum of 2 levels of hierarchy (main tasks and sub-tasks)
 
 Focus on:
 - Coding tasks that can be executed by developers
 - Test-driven development approach
 - Incremental implementation steps
-- Clear acceptance criteria
-- Proper task dependencies
 - Specific file/component references
+- Building functionality step by step
 
 Avoid:
 - User testing or feedback gathering
@@ -198,24 +210,7 @@ Each task should be concrete enough that a developer can execute it without addi
 
         try:
             response = self.ai_service.generate_text(tasks_prompt, self.kiro_system_prompt)
-            
-            # Try to parse as JSON
-            try:
-                tasks = json.loads(response)
-                return tasks if isinstance(tasks, list) else []
-            except json.JSONDecodeError:
-                # If JSON parsing fails, create a simple task structure
-                return [{
-                    "id": "1",
-                    "title": "Implementation Tasks",
-                    "description": response,
-                    "type": "implementation",
-                    "priority": "high",
-                    "estimated_hours": 8,
-                    "requirements_refs": [],
-                    "dependencies": [],
-                    "acceptance_criteria": ["Complete implementation as described"]
-                }]
+            return response
                 
         except Exception as e:
             self.logger.error(f"Task generation failed: {e}")
@@ -241,7 +236,7 @@ Each task should be concrete enough that a developer can execute it without addi
                 st.session_state.design_doc = content
                 st.session_state.design_data = doc_data
             elif doc_type == "tasks":
-                st.session_state.task_list = content if isinstance(content, list) else []
+                st.session_state.task_list = content
                 st.session_state.tasks_data = doc_data
             
             return True
@@ -265,7 +260,7 @@ Each task should be concrete enough that a developer can execute it without addi
             },
             "tasks": {
                 "exists": bool(st.session_state.get("task_list")),
-                "content": st.session_state.get("task_list", []),
+                "content": st.session_state.get("task_list", ""),
                 "data": st.session_state.get("tasks_data", {})
             }
         }
@@ -327,9 +322,12 @@ Each task should be concrete enough that a developer can execute it without addi
             documents["design.md"] = st.session_state.design_doc
         
         if st.session_state.get("task_list"):
-            # Convert tasks to markdown format
+            # Tasks are now already in markdown format
             tasks = st.session_state.task_list
-            if isinstance(tasks, list) and tasks:
+            if isinstance(tasks, str) and tasks.strip():
+                documents["tasks.md"] = tasks
+            elif isinstance(tasks, list) and tasks:
+                # Fallback for old JSON format if it still exists
                 tasks_md = "# Implementation Tasks\n\n"
                 for i, task in enumerate(tasks, 1):
                     if isinstance(task, dict):

@@ -263,31 +263,7 @@ class AIService:
         
         return self.generate_text(prompt, system_prompt)
     
-    def generate_tasks(self, design: str) -> List[Dict]:
-        """Generate implementation tasks from design"""
-        system_prompt = """You are Kiro, an AI assistant and IDE built to assist developers.
-        Convert the design into actionable implementation tasks.
-        
-        Format as a JSON array of tasks with:
-        - title: Task title
-        - description: Detailed description
-        - requirements_refs: Array of requirement references
-        - estimated_hours: Estimated completion time
-        - dependencies: Array of dependent task titles
-        
-        Focus only on coding tasks that can be executed by a developer."""
-        
-        prompt = f"Generate implementation tasks for this design:\n{design}"
-        
-        response = self.generate_text(prompt, system_prompt)
-        
-        try:
-            # Try to parse as JSON, fallback to text if needed
-            return json.loads(response)
-        except json.JSONDecodeError:
-            # Return as simple text-based tasks if JSON parsing fails
-            return [{"title": "Implementation Tasks", "description": response}]
-    
+
     def analyze_codebase(self, files: Dict) -> Dict:
         """Analyze codebase structure and patterns"""
         system_prompt = """You are Kiro, an AI assistant and IDE built to assist developers.

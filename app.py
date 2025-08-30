@@ -32,7 +32,7 @@ def main():
         st.session_state.active_spec = None
         st.session_state.requirements_doc = ""
         st.session_state.design_doc = ""
-        st.session_state.task_list = []
+        st.session_state.task_list = ""
         st.session_state.jira_config = {}
         st.session_state.ai_service = AIService()
         st.session_state.file_service = FileService()
@@ -501,28 +501,10 @@ This design document outlines the technical approach for implementing the featur
         
         with st.spinner("🧠 Creating implementation task list..."):
             try:
-                tasks = st.session_state.ai_service.generate_tasks(workflow_state['design_content'])
-                
-                # Format as proper task document
-                if isinstance(tasks, list):
-                    # Convert task list to markdown format
-                    tasks_md = "# Implementation Plan\n\n"
-                    for i, task in enumerate(tasks, 1):
-                        if isinstance(task, dict):
-                            title = task.get('title', f'Task {i}')
-                            description = task.get('description', '')
-                            requirements_refs = task.get('requirements_refs', [])
-                            
-                            tasks_md += f"- [ ] {i}. {title}\n"
-                            if description:
-                                tasks_md += f"  - {description}\n"
-                            if requirements_refs:
-                                tasks_md += f"  - _Requirements: {', '.join(requirements_refs)}_\n"
-                            tasks_md += "\n"
-                        else:
-                            tasks_md += f"- [ ] {i}. {str(task)}\n\n"
-                else:
-                    tasks_md = f"# Implementation Plan\n\n{tasks}"
+                tasks_md = st.session_state.spec_engine.create_task_list(
+                    workflow_state['design_content'],
+                    workflow_state.get('requirements_content', '')
+                )
                 
                 workflow_state['tasks_content'] = tasks_md
                 workflow_state['current_phase'] = 'tasks'
