@@ -374,14 +374,14 @@ def render_online_jira_mode():
         col1, col2 = st.columns(2)
         
         with col1:
-            jira_url = st.text_input("JIRA URL", placeholder="https://yourcompany.atlassian.net")
-            username = st.text_input("Username/Email", placeholder="your.email@company.com")
+            jira_url = st.text_input("JIRA URL", placeholder="https://yourcompany.atlassian.net", key="online_jira_url")
+            username = st.text_input("Username/Email", placeholder="your.email@company.com", key="online_jira_username")
             
         with col2:
-            api_token = st.text_input("API Token", type="password", placeholder="Your JIRA API token")
-            project_key = st.text_input("Project Key", placeholder="PROJ", value="KIRO")
+            api_token = st.text_input("API Token", type="password", placeholder="Your JIRA API token", key="online_jira_token")
+            project_key = st.text_input("Project Key", placeholder="PROJ", value="KIRO", key="online_jira_project")
         
-        if st.button("🔗 Test Connection"):
+        if st.button("🔗 Test Connection", key="online_test_connection"):
             if jira_url and username and api_token:
                 with st.spinner("Testing JIRA connection..."):
                     # Simulate connection test
@@ -392,9 +392,9 @@ def render_online_jira_mode():
     
     # Show available tasks for online mode
     if st.session_state.get('jira_connected'):
-        show_available_tasks_for_jira()
+        show_available_tasks_for_jira("online")
         
-        if st.button("🚀 Create JIRA Tickets", type="primary"):
+        if st.button("🚀 Create JIRA Tickets", type="primary", key="online_create_tickets"):
             st.success("🎉 JIRA tickets created successfully!")
             st.info("In a real implementation, this would create actual JIRA tickets using the API")
     else:
@@ -410,25 +410,25 @@ def render_offline_jira_mode():
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            issue_type = st.selectbox("Issue Type", ["Story", "Task", "Bug", "Epic"], index=0)
-            priority = st.selectbox("Priority", ["Highest", "High", "Medium", "Low", "Lowest"], index=2)
+            issue_type = st.selectbox("Issue Type", ["Story", "Task", "Bug", "Epic"], index=0, key="offline_issue_type")
+            priority = st.selectbox("Priority", ["Highest", "High", "Medium", "Low", "Lowest"], index=2, key="offline_priority")
         
         with col2:
-            project_key = st.text_input("Project Key", value="KIRO", placeholder="PROJ")
-            assignee = st.text_input("Default Assignee", placeholder="username")
+            project_key = st.text_input("Project Key", value="KIRO", placeholder="PROJ", key="offline_project_key")
+            assignee = st.text_input("Default Assignee", placeholder="username", key="offline_assignee")
         
         with col3:
-            epic_link = st.text_input("Epic Link", placeholder="EPIC-123")
-            story_points = st.text_input("Story Points", placeholder="3")
+            epic_link = st.text_input("Epic Link", placeholder="EPIC-123", key="offline_epic_link")
+            story_points = st.text_input("Story Points", placeholder="3", key="offline_story_points")
     
     # Show available tasks
-    show_available_tasks_for_jira()
+    show_available_tasks_for_jira("offline")
     
     # Generate templates button
-    if st.button("✨ Generate JIRA Templates", type="primary"):
+    if st.button("✨ Generate JIRA Templates", type="primary", key="offline_generate_templates"):
         generate_offline_jira_templates(issue_type, priority, project_key, assignee, epic_link, story_points)
 
-def show_available_tasks_for_jira():
+def show_available_tasks_for_jira(mode="offline"):
     """Show available task lists for JIRA integration"""
     st.markdown("#### 📋 Available Task Lists")
     
@@ -449,7 +449,7 @@ def show_available_tasks_for_jira():
             selected_spec = st.selectbox(
                 "Select Task List",
                 options=[task['name'] for task in available_tasks],
-                key="jira_task_selection"
+                key=f"{mode}_jira_task_selection"
             )
             
             if selected_spec:
@@ -514,7 +514,8 @@ def generate_offline_jira_templates(issue_type, priority, project_key, assignee,
             # Format selection for preview
             format_choice = st.selectbox(
                 "Preview Format",
-                ["Production Markdown", "Tasks.md Format", "CSV Preview", "JSON Preview"]
+                ["Production Markdown", "Tasks.md Format", "CSV Preview", "JSON Preview"],
+                key="offline_preview_format"
             )
             
             if format_choice == "Production Markdown":
@@ -529,7 +530,7 @@ def generate_offline_jira_templates(issue_type, priority, project_key, assignee,
             
             elif format_choice == "CSV Preview":
                 st.markdown("##### CSV Format (First 500 chars)")
-                st.text_area("CSV Content", templates['csv'][:500] + "..." if len(templates['csv']) > 500 else templates['csv'], height=200)
+                st.text_area("CSV Content", templates['csv'][:500] + "..." if len(templates['csv']) > 500 else templates['csv'], height=200, key="offline_csv_preview")
             
             elif format_choice == "JSON Preview":
                 st.markdown("##### JSON Format")
