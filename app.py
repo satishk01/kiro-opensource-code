@@ -643,6 +643,107 @@ def show_diagrams():
     # Placeholder for diagram generation
     st.info("Diagram generation functionality will be implemented in upcoming tasks")
 
+def generate_jira_templates(parsed_tasks, issue_type, priority, project_key, add_labels):
+    """Generate JIRA ticket templates in different formats"""
+    import json
+    import csv
+    from io import StringIO
+    
+    # Prepare template data
+    template_data = []
+    
+    for i, task in enumerate(parsed_tasks, 1):
+        labels = ["kiro-generated", "implementation"] if add_labels else []
+        
+        ticket_data = {
+            "summary": task["title"],
+            "description": task["description"] if task["description"] else f"Implementation task: {task['title']}",
+            "issue_type": issue_type,
+            "priority": priority,
+            "project_key": project_key,
+            "labels": labels,
+            "requirements": task.get("requirements", []),
+            "subtasks": [st["title"] for st in task.get("subtasks", [])]
+        }
+        
+        template_data.append(ticket_data)
+    
+    # Generate CSV format
+    csv_buffer = StringIO()
+    csv_writer = csv.writer(csv_buffer)
+    
+    # CSV headers
+    csv_writer.writerow([
+        "Summary", "Description", "Issue Type", "Priority", "Project Key", 
+        "Labels", "Requirements", "Subtasks"
+    ])
+    
+    # CSV data
+    for ticket in template_data:
+        csv_writer.writerow([
+            ticket["summary"],
+            ticket["description"],
+            ticket["issue_type"],
+            ticket["priority"],
+            ticket["project_key"],
+            "; ".join(ticket["labels"]),
+            "; ".join(ticket["requirements"]),
+            "; ".join(ticket["subtasks"])
+        ])
+    
+    csv_content = csv_buffer.getvalue()
+    
+    # Generate JSON format (JIRA API ready)
+    json_tickets = []
+    for ticket in template_data:
+        json_ticket = {
+            "fields": {
+                "project": {"key": ticket["project_key"]},
+                "summary": ticket["summary"],
+                "description": ticket["description"],
+                "issuetype": {"name": ticket["issue_type"]},
+                "priority": {"name": ticket["priority"]}
+            }
+        }
+        
+        if ticket["labels"]:
+            json_ticket["fields"]["labels"] = ticket["labels"]
+        
+        json_tickets.append(json_ticket)
+    
+    json_content = json.dumps({"issues": json_tickets}, indent=2)
+    
+    # Generate Markdown format
+    md_content = "# JIRA Ticket Templates\n\n"
+    md_content += f"**Project:** {project_key}\n"
+    md_content += f"**Issue Type:** {issue_type}\n"
+    md_content += f"**Priority:** {priority}\n\n"
+    
+    for i, ticket in enumerate(template_data, 1):
+        md_content += f"## Ticket {i}: {ticket['summary']}\n\n"
+        md_content += f"**Description:**\n{ticket['description']}\n\n"
+        
+        if ticket["requirements"]:
+            md_content += f"**Requirements:** {', '.join(ticket['requirements'])}\n\n"
+        
+        if ticket["subtasks"]:
+            md_content += f"**Subtasks:**\n"
+            for subtask in ticket["subtasks"]:
+                md_content += f"- {subtask}\n"
+            md_content += "\n"
+        
+        if ticket["labels"]:
+            md_content += f"**Labels:** {', '.join(ticket['labels'])}\n\n"
+        
+        md_content += "---\n\n"
+    
+    return {
+        "csv": csv_content,
+        "json": json_content,
+        "markdown": md_content,
+        "count": len(template_data)
+    }
+
 def show_jira_integration():
     st.title("🎯 JIRA Integration")
     st.markdown("Create and manage JIRA tickets from generated tasks")
@@ -711,29 +812,82 @@ def show_jira_integration():
         if st.button("🔄 Test Connection"):
             st.session_state.jira_client.test_connection()
     else:
-        st.warning("⚠️ Please configure JIRA connection above to create tickets")
-        return
+        st.info("💡 You can create tickets online (with JIRA connection) or offline (download templates)")
+    
+    st.markdown("---")
+    
+    # Mode Selection
+    st.subheader("🎯 Ticket Creation Mode")
+    
+    mode_col1, mode_col2 = st.columns(2)
+    
+    with mode_col1:
+        online_mode = st.button(
+            "🌐 Online Mode (Connect to JIRA)",
+            disabled=not st.session_state.get('jira_configured', False),
+            help="Create tickets directly in your JIRA instance" if st.session_state.get('jira_configured', False) else "Configure JIRA connection first",
+            type="primary" if st.session_state.get('jira_configured', False) else "secondary"
+        )
+    
+    with mode_col2:
+        offline_mode = st.button(
+            "📱 Offline Mode (Download Templates)",
+            help="Generate JIRA ticket templates and download them",
+            type="primary"
+        )
+    
+    # Set mode in session state
+    if online_mode:
+        st.session_state.jira_mode = 'online'
+    elif offline_mode:
+        st.session_state.jira_mode = 'offline'
+    
+    # Default to offline if no JIRA connection
+    if not st.session_state.get('jira_mode') and not st.session_state.get('jira_configured', False):
+        st.session_state.jira_mode = 'offline'
+    elif not st.session_state.get('jira_mode'):
+        st.session_state.jira_mode = 'online'
+    
+    # Show current mode
+    current_mode = st.session_state.get('jira_mode', 'offline')
+    if current_mode == 'online':
+        st.info("🌐 **Online Mode**: Tickets will be created directly in JIRA")
+    else:
+        st.info("📱 **Offline Mode**: Ticket templates will be generated for download")
     
     st.markdown("---")
     
     # Ticket Creation Section
     st.subheader("🎫 Create Tickets from Tasks")
     
-    # Check if we have completed spec with tasks
+    # Get tasks from either completed spec or current workflow
+    tasks_content = None
+    tasks_source = None
+    
     if hasattr(st.session_state, 'completed_spec') and st.session_state.completed_spec.get('tasks'):
-        st.markdown("### 📋 Available Tasks")
+        tasks_content = st.session_state.completed_spec['tasks']
+        tasks_source = "Completed Spec"
+    elif hasattr(st.session_state, 'spec_workflow_state') and st.session_state.spec_workflow_state.get('tasks_content'):
+        tasks_content = st.session_state.spec_workflow_state['tasks_content']
+        tasks_source = "Current Workflow"
+    
+    if tasks_content:
+        st.markdown(f"### 📋 Available Tasks ({tasks_source})")
         
         # Show preview of tasks
         with st.expander("👀 Preview Tasks", expanded=False):
-            st.markdown(st.session_state.completed_spec['tasks'])
+            st.markdown(tasks_content)
         
         # Ticket creation options
         col1, col2 = st.columns(2)
         
         with col1:
-            # Get available issue types
-            issue_types = st.session_state.jira_client.get_issue_types()
-            issue_type_names = [it['name'] for it in issue_types] if issue_types else ['Task', 'Story', 'Bug']
+            # Get available issue types (only for online mode)
+            if current_mode == 'online' and st.session_state.get('jira_configured', False):
+                issue_types = st.session_state.jira_client.get_issue_types()
+                issue_type_names = [it['name'] for it in issue_types] if issue_types else ['Task', 'Story', 'Bug']
+            else:
+                issue_type_names = ['Task', 'Story', 'Bug', 'Epic', 'Sub-task']
             
             selected_issue_type = st.selectbox(
                 "Issue Type",
@@ -748,138 +902,217 @@ def show_jira_integration():
                 "Default Priority",
                 priority_options,
                 index=2,  # Medium
-                help="Default priority for created tickets"
+                help="Default priority for tickets"
             )
         
         # Additional options
         add_labels = st.checkbox("Add Kiro labels", value=True, help="Add 'kiro-generated' and 'implementation' labels")
         
-        # Create tickets button
-        if st.button("🚀 Create JIRA Tickets", type="primary"):
-            with st.spinner("Creating JIRA tickets from tasks..."):
-                try:
-                    created_tickets = st.session_state.jira_client.create_tickets_from_tasks(
-                        st.session_state.completed_spec['tasks'],
-                        selected_issue_type
-                    )
-                    
-                    if created_tickets:
-                        st.success(f"✅ Successfully created {len(created_tickets)} JIRA tickets!")
-                        
-                        # Store created tickets for tracking
-                        st.session_state.created_tickets = created_tickets
-                        
-                        # Show created tickets
-                        st.markdown("### 🎫 Created Tickets")
-                        
-                        for item in created_tickets:
-                            ticket = item['ticket']
-                            col1, col2, col3 = st.columns([2, 1, 1])
-                            
-                            with col1:
-                                st.markdown(f"**{ticket['key']}**: {item['task']}")
-                            
-                            with col2:
-                                st.markdown(f"[View Ticket]({ticket['url']})")
-                            
-                            with col3:
-                                st.code(ticket['key'])
-                    else:
-                        st.error("❌ No tickets were created. Check the error messages above.")
-                        
-                except Exception as e:
-                    st.error(f"❌ Failed to create tickets: {e}")
-    
-    elif hasattr(st.session_state, 'spec_workflow_state') and st.session_state.spec_workflow_state.get('tasks_content'):
-        # Use tasks from current workflow
-        st.markdown("### 📋 Current Workflow Tasks")
+        # Project key for offline mode
+        if current_mode == 'offline':
+            offline_project_key = st.text_input(
+                "Project Key (for templates)",
+                value="PROJ",
+                help="Project key to use in ticket templates"
+            )
         
-        with st.expander("👀 Preview Tasks", expanded=False):
-            st.markdown(st.session_state.spec_workflow_state['tasks_content'])
+        # Create tickets button - different behavior based on mode
+        if current_mode == 'online':
+            button_text = "🌐 Create JIRA Tickets Online"
+            button_help = "Create tickets directly in your JIRA instance"
+        else:
+            button_text = "📱 Generate Ticket Templates"
+            button_help = "Generate JIRA ticket templates for download"
         
-        # Similar ticket creation interface
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            issue_types = st.session_state.jira_client.get_issue_types()
-            issue_type_names = [it['name'] for it in issue_types] if issue_types else ['Task', 'Story', 'Bug']
+        if st.button(button_text, type="primary", help=button_help):
+            if current_mode == 'online':
+                # Online mode - create actual JIRA tickets
+                with st.spinner("Creating JIRA tickets online..."):
+                    try:
+                        created_tickets = st.session_state.jira_client.create_tickets_from_tasks(
+                            tasks_content,
+                            selected_issue_type
+                        )
+                        
+                        if created_tickets:
+                            st.success(f"✅ Successfully created {len(created_tickets)} JIRA tickets!")
+                            
+                            # Store created tickets for tracking
+                            st.session_state.created_tickets = created_tickets
+                            
+                            # Show created tickets
+                            st.markdown("### 🎫 Created Tickets")
+                            
+                            for item in created_tickets:
+                                ticket = item['ticket']
+                                col1, col2, col3 = st.columns([2, 1, 1])
+                                
+                                with col1:
+                                    st.markdown(f"**{ticket['key']}**: {item['task']}")
+                                
+                                with col2:
+                                    st.markdown(f"[View Ticket]({ticket['url']})")
+                                
+                                with col3:
+                                    st.code(ticket['key'])
+                        else:
+                            st.error("❌ No tickets were created. Check the error messages above.")
+                            
+                    except Exception as e:
+                        st.error(f"❌ Failed to create tickets: {e}")
             
-            selected_issue_type = st.selectbox(
-                "Issue Type",
-                issue_type_names,
-                index=0
-            )
-        
-        with col2:
-            priority_options = ['Highest', 'High', 'Medium', 'Low', 'Lowest']
-            default_priority = st.selectbox(
-                "Default Priority",
-                priority_options,
-                index=2
-            )
-        
-        if st.button("🚀 Create JIRA Tickets from Current Tasks", type="primary"):
-            with st.spinner("Creating JIRA tickets..."):
-                try:
-                    created_tickets = st.session_state.jira_client.create_tickets_from_tasks(
-                        st.session_state.spec_workflow_state['tasks_content'],
-                        selected_issue_type
-                    )
-                    
-                    if created_tickets:
-                        st.success(f"✅ Successfully created {len(created_tickets)} JIRA tickets!")
-                        st.session_state.created_tickets = created_tickets
+            else:
+                # Offline mode - generate templates
+                with st.spinner("Generating JIRA ticket templates..."):
+                    try:
+                        # Parse tasks and generate templates
+                        parsed_tasks = st.session_state.jira_client.parse_tasks_from_markdown(tasks_content)
                         
-                        # Show created tickets
-                        for item in created_tickets:
-                            ticket = item['ticket']
-                            st.markdown(f"**{ticket['key']}**: {item['task']} - [View]({ticket['url']})")
-                    else:
-                        st.error("❌ No tickets were created.")
+                        if parsed_tasks:
+                            # Generate different template formats
+                            templates = generate_jira_templates(
+                                parsed_tasks, 
+                                selected_issue_type, 
+                                default_priority,
+                                offline_project_key,
+                                add_labels
+                            )
+                            
+                            st.success(f"✅ Generated templates for {len(parsed_tasks)} tickets!")
+                            
+                            # Store templates for display and download
+                            st.session_state.jira_templates = templates
+                            
+                            # Show templates
+                            st.markdown("### 📄 Generated Templates")
+                            
+                            # Template format selection
+                            template_format = st.radio(
+                                "Choose template format:",
+                                ["CSV (Excel compatible)", "JSON (API ready)", "Markdown (Human readable)"],
+                                horizontal=True
+                            )
+                            
+                            # Display and download templates
+                            if template_format == "CSV (Excel compatible)":
+                                csv_content = templates['csv']
+                                st.text_area("CSV Template", csv_content, height=200)
+                                st.download_button(
+                                    "💾 Download CSV Template",
+                                    csv_content,
+                                    "jira_tickets.csv",
+                                    "text/csv"
+                                )
+                            
+                            elif template_format == "JSON (API ready)":
+                                json_content = templates['json']
+                                st.code(json_content, language='json')
+                                st.download_button(
+                                    "💾 Download JSON Template",
+                                    json_content,
+                                    "jira_tickets.json",
+                                    "application/json"
+                                )
+                            
+                            else:  # Markdown
+                                md_content = templates['markdown']
+                                st.markdown("#### Template Preview:")
+                                st.markdown(md_content)
+                                st.download_button(
+                                    "💾 Download Markdown Template",
+                                    md_content,
+                                    "jira_tickets.md",
+                                    "text/markdown"
+                                )
                         
-                except Exception as e:
-                    st.error(f"❌ Failed to create tickets: {e}")
+                        else:
+                            st.error("❌ No tasks found to generate templates.")
+                            
+                    except Exception as e:
+                        st.error(f"❌ Failed to generate templates: {e}")
     
     else:
         st.info("📋 No tasks available. Generate a spec first in the 'Spec Generation' tab.")
     
-    # Ticket Management Section
-    if st.session_state.get('created_tickets'):
+    # Management Section - different for online vs offline
+    if st.session_state.get('created_tickets') or st.session_state.get('jira_templates'):
         st.markdown("---")
-        st.subheader("📊 Ticket Management")
+        st.subheader("📊 Management & History")
         
-        # Show created tickets with status
-        st.markdown("### 🎫 Your Created Tickets")
-        
-        for item in st.session_state.created_tickets:
-            ticket = item['ticket']
+        # Online tickets management
+        if st.session_state.get('created_tickets'):
+            st.markdown("### 🌐 Online Tickets (Created in JIRA)")
             
-            with st.expander(f"🎫 {ticket['key']} - {item['task']}", expanded=False):
-                col1, col2 = st.columns(2)
+            for item in st.session_state.created_tickets:
+                ticket = item['ticket']
                 
-                with col1:
-                    st.markdown(f"**Ticket Key:** {ticket['key']}")
-                    st.markdown(f"**Task:** {item['task']}")
-                    st.markdown(f"**URL:** [View in JIRA]({ticket['url']})")
+                with st.expander(f"🎫 {ticket['key']} - {item['task']}", expanded=False):
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown(f"**Ticket Key:** {ticket['key']}")
+                        st.markdown(f"**Task:** {item['task']}")
+                        st.markdown(f"**URL:** [View in JIRA]({ticket['url']})")
+                    
+                    with col2:
+                        if st.button(f"🔄 Refresh Status", key=f"refresh_{ticket['key']}"):
+                            status = st.session_state.jira_client.get_ticket_status(ticket['key'])
+                            if status:
+                                st.info(f"Status: {status['status']}")
+                                st.info(f"Assignee: {status['assignee']}")
+                            else:
+                                st.error("Failed to get ticket status")
+        
+        # Offline templates management
+        if st.session_state.get('jira_templates'):
+            st.markdown("### 📱 Offline Templates (Generated)")
+            
+            templates = st.session_state.jira_templates
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Templates Generated", templates['count'])
+            
+            with col2:
+                st.download_button(
+                    "💾 Download CSV",
+                    templates['csv'],
+                    "jira_tickets.csv",
+                    "text/csv"
+                )
+            
+            with col3:
+                st.download_button(
+                    "💾 Download JSON",
+                    templates['json'],
+                    "jira_tickets.json",
+                    "application/json"
+                )
+            
+            # Show template preview
+            with st.expander("👀 Template Preview", expanded=False):
+                format_choice = st.selectbox(
+                    "Preview format:",
+                    ["Markdown", "CSV", "JSON"],
+                    key="preview_format"
+                )
                 
-                with col2:
-                    if st.button(f"🔄 Refresh Status", key=f"refresh_{ticket['key']}"):
-                        status = st.session_state.jira_client.get_ticket_status(ticket['key'])
-                        if status:
-                            st.info(f"Status: {status['status']}")
-                            st.info(f"Assignee: {status['assignee']}")
-                        else:
-                            st.error("Failed to get ticket status")
-    
-    # Bulk Operations
-    if st.session_state.get('created_tickets'):
+                if format_choice == "Markdown":
+                    st.markdown(templates['markdown'])
+                elif format_choice == "CSV":
+                    st.text(templates['csv'])
+                else:
+                    st.code(templates['json'], language='json')
+        
+        # Bulk Operations
         st.markdown("---")
         st.subheader("🔧 Bulk Operations")
         
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         
         with col1:
-            if st.button("📋 Export Ticket List"):
+            if st.session_state.get('created_tickets') and st.button("📋 Export Online Tickets"):
                 ticket_list = []
                 for item in st.session_state.created_tickets:
                     ticket = item['ticket']
@@ -887,16 +1120,52 @@ def show_jira_integration():
                 
                 ticket_text = "\n".join(ticket_list)
                 st.download_button(
-                    label="💾 Download Ticket List",
+                    label="💾 Download Online Tickets",
                     data=ticket_text,
-                    file_name="jira_tickets.txt",
+                    file_name="online_jira_tickets.txt",
                     mime="text/plain"
                 )
         
         with col2:
-            if st.button("🗑️ Clear Ticket History"):
-                del st.session_state.created_tickets
+            if st.session_state.get('jira_templates') and st.button("📱 Re-download Templates"):
+                st.info("Use the download buttons above to get your templates again")
+        
+        with col3:
+            if st.button("🗑️ Clear All History"):
+                if 'created_tickets' in st.session_state:
+                    del st.session_state.created_tickets
+                if 'jira_templates' in st.session_state:
+                    del st.session_state.jira_templates
+                st.success("✅ History cleared!")
                 st.rerun()
+    
+    # Help Section
+    st.markdown("---")
+    st.subheader("💡 How to Use")
+    
+    help_col1, help_col2 = st.columns(2)
+    
+    with help_col1:
+        st.markdown("""
+        **🌐 Online Mode:**
+        1. Configure JIRA connection above
+        2. Select "Online Mode"
+        3. Choose issue type and priority
+        4. Click "Create JIRA Tickets Online"
+        5. Tickets are created directly in JIRA
+        """)
+    
+    with help_col2:
+        st.markdown("""
+        **📱 Offline Mode:**
+        1. Select "Offline Mode" (no JIRA connection needed)
+        2. Choose issue type and priority
+        3. Enter project key for templates
+        4. Click "Generate Ticket Templates"
+        5. Download templates in CSV, JSON, or Markdown format
+        """)
+    
+    st.info("💡 **Tip:** Use offline mode to prepare tickets for review before creating them in JIRA, or when you don't have JIRA access.")
 
 if __name__ == "__main__":
     main()
