@@ -71,7 +71,7 @@ def render_navigation_panel():
     
     # Model status
     st.markdown("#### 🧠 AI Model")
-    if st.session_state.model_connected:
+    if st.session_state.get('model_connected', False) and st.session_state.get('selected_model'):
         st.success(f"✅ {st.session_state.selected_model}")
     else:
         st.warning("⚠️ No model selected")
@@ -95,6 +95,17 @@ def render_actions_panel():
     # Model Selection Section
     st.markdown("#### 🧠 Model Selection")
     
+    # Debug info (can be removed later)
+    if st.checkbox("Show Debug Info", key="debug_mode"):
+        st.write("Debug Info:")
+        st.write(f"- selected_model: {st.session_state.get('selected_model', 'None')}")
+        st.write(f"- model_connected: {st.session_state.get('model_connected', False)}")
+        st.write(f"- ai_service exists: {hasattr(st.session_state, 'ai_service')}")
+        if hasattr(st.session_state, 'ai_service'):
+            st.write(f"- ai_service.current_model: {getattr(st.session_state.ai_service, 'current_model', 'None')}")
+            st.write(f"- ai_service.bedrock_client: {st.session_state.ai_service.bedrock_client is not None}")
+        st.write(f"- selectbox value: {selected_model}")
+    
     model_options = ["Select a model...", "Claude Sonnet 3.5 v2", "Amazon Nova Pro"]
     selected_model = st.selectbox(
         "Choose AI Model",
@@ -104,8 +115,35 @@ def render_actions_panel():
     )
     
     if selected_model != "Select a model..." and selected_model != st.session_state.selected_model:
-        st.session_state.selected_model = selected_model
-        st.session_state.model_connected = True
+        with st.spinner(f"Connecting to {selected_model}..."):
+            if st.session_state.ai_service.select_model(selected_model):
+                st.session_state.selected_model = selected_model
+                st.session_state.model_connected = True
+                st.success(f"✅ Connected to {selected_model}")
+            else:
+                st.session_state.model_connected = False
+                st.error(f"❌ Failed to connect to {selected_model}")
+        st.rerun()
+    
+    # Ensure AI service model is synchronized with session state
+    elif selected_model != "Select a model..." and st.session_state.get('selected_model') == selected_model:
+        # Model is already selected in session state, ensure AI service is synchronized
+        if not st.session_state.ai_service.current_model or st.session_state.ai_service.current_model != selected_model:
+            st.session_state.ai_service.select_model(selected_model)
+    
+    # Test connection button
+    if st.session_state.get('selected_model') and st.button("🔄 Test Connection", key="test_connection"):
+        with st.spinner("Testing connection..."):
+            try:
+                if st.session_state.ai_service.initialize_bedrock_client():
+                    st.session_state.model_connected = True
+                    st.success("✅ Connection successful")
+                else:
+                    st.session_state.model_connected = False
+                    st.error("❌ Connection failed")
+            except Exception as e:
+                st.session_state.model_connected = False
+                st.error(f"❌ Connection error: {str(e)}")
         st.rerun()
     
     st.markdown("---")
@@ -354,9 +392,13 @@ def handle_generate_action():
         st.error("Please enter a prompt first")
         return
     
-    if not st.session_state.model_connected:
+    if not st.session_state.get('model_connected', False) or not st.session_state.get('selected_model'):
         st.error("Please select an AI model first")
         return
+    
+    # Ensure AI service has the correct model selected
+    if not st.session_state.ai_service.current_model or st.session_state.ai_service.current_model != st.session_state.selected_model:
+        st.session_state.ai_service.select_model(st.session_state.selected_model)
     
     try:
         if st.session_state.current_view == "Spec Generation":
