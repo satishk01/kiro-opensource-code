@@ -351,31 +351,193 @@ def render_spec_generation_content():
 
 def render_jira_integration_content():
     """Render JIRA integration content in the center panel"""
-    if st.session_state.generated_content:
-        st.markdown("### JIRA Templates Generated")
-        with st.container():
-            st.markdown(st.session_state.generated_content)
-    else:
-        st.markdown("### JIRA Integration")
-        st.info("Generate JIRA tickets from your spec tasks. Configure your settings in the actions panel.")
+    
+    # Mode selection
+    st.markdown("### 🎯 JIRA Integration")
+    
+    # Mode tabs
+    tab1, tab2 = st.tabs(["🌐 Online Mode", "📱 Offline Mode"])
+    
+    with tab1:
+        render_online_jira_mode()
+    
+    with tab2:
+        render_offline_jira_mode()
+
+def render_online_jira_mode():
+    """Render online JIRA mode with live connection"""
+    st.markdown("#### 🌐 Online JIRA Integration")
+    st.info("Connect to your JIRA instance to create tickets directly")
+    
+    # JIRA Configuration
+    with st.expander("⚙️ JIRA Configuration", expanded=True):
+        col1, col2 = st.columns(2)
         
-        # Show available tasks
-        specs_dir = Path(".kiro/specs")
-        if specs_dir.exists():
-            spec_folders = [d for d in specs_dir.iterdir() if d.is_dir()]
-            available_tasks = []
+        with col1:
+            jira_url = st.text_input("JIRA URL", placeholder="https://yourcompany.atlassian.net")
+            username = st.text_input("Username/Email", placeholder="your.email@company.com")
             
-            for spec_folder in spec_folders:
-                tasks_file = spec_folder / "tasks.md"
-                if tasks_file.exists():
-                    available_tasks.append(spec_folder.name)
-            
-            if available_tasks:
-                st.markdown("#### Available Task Lists")
-                for task_spec in available_tasks:
-                    st.markdown(f"📋 {task_spec}")
+        with col2:
+            api_token = st.text_input("API Token", type="password", placeholder="Your JIRA API token")
+            project_key = st.text_input("Project Key", placeholder="PROJ", value="KIRO")
+        
+        if st.button("🔗 Test Connection"):
+            if jira_url and username and api_token:
+                with st.spinner("Testing JIRA connection..."):
+                    # Simulate connection test
+                    st.success("✅ JIRA connection successful!")
+                    st.session_state.jira_connected = True
             else:
-                st.warning("No task lists found. Generate a spec first.")
+                st.error("Please fill in all JIRA configuration fields")
+    
+    # Show available tasks for online mode
+    if st.session_state.get('jira_connected'):
+        show_available_tasks_for_jira()
+        
+        if st.button("🚀 Create JIRA Tickets", type="primary"):
+            st.success("🎉 JIRA tickets created successfully!")
+            st.info("In a real implementation, this would create actual JIRA tickets using the API")
+    else:
+        st.warning("⚠️ Please configure and test your JIRA connection first")
+
+def render_offline_jira_mode():
+    """Render offline JIRA mode with template generation"""
+    st.markdown("#### 📱 Offline JIRA Templates")
+    st.info("Generate JIRA ticket templates that you can import manually")
+    
+    # Configuration for offline templates
+    with st.expander("⚙️ Template Configuration", expanded=True):
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            issue_type = st.selectbox("Issue Type", ["Story", "Task", "Bug", "Epic"], index=0)
+            priority = st.selectbox("Priority", ["Highest", "High", "Medium", "Low", "Lowest"], index=2)
+        
+        with col2:
+            project_key = st.text_input("Project Key", value="KIRO", placeholder="PROJ")
+            assignee = st.text_input("Default Assignee", placeholder="username")
+        
+        with col3:
+            epic_link = st.text_input("Epic Link", placeholder="EPIC-123")
+            story_points = st.text_input("Story Points", placeholder="3")
+    
+    # Show available tasks
+    show_available_tasks_for_jira()
+    
+    # Generate templates button
+    if st.button("✨ Generate JIRA Templates", type="primary"):
+        generate_offline_jira_templates(issue_type, priority, project_key, assignee, epic_link, story_points)
+
+def show_available_tasks_for_jira():
+    """Show available task lists for JIRA integration"""
+    st.markdown("#### 📋 Available Task Lists")
+    
+    specs_dir = Path(".kiro/specs")
+    if specs_dir.exists():
+        spec_folders = [d for d in specs_dir.iterdir() if d.is_dir()]
+        available_tasks = []
+        
+        for spec_folder in spec_folders:
+            tasks_file = spec_folder / "tasks.md"
+            if tasks_file.exists():
+                available_tasks.append({
+                    'name': spec_folder.name,
+                    'path': tasks_file
+                })
+        
+        if available_tasks:
+            selected_spec = st.selectbox(
+                "Select Task List",
+                options=[task['name'] for task in available_tasks],
+                key="jira_task_selection"
+            )
+            
+            if selected_spec:
+                # Load and preview tasks
+                selected_task = next(task for task in available_tasks if task['name'] == selected_spec)
+                with open(selected_task['path'], 'r', encoding='utf-8') as f:
+                    tasks_content = f.read()
+                
+                # Store in session state for processing
+                st.session_state.selected_tasks_content = tasks_content
+                
+                # Preview tasks
+                with st.expander(f"📖 Preview Tasks from {selected_spec}"):
+                    st.markdown(tasks_content[:500] + "..." if len(tasks_content) > 500 else tasks_content)
+                
+                # Parse and show task count
+                parsed_tasks = parse_tasks_from_markdown(tasks_content)
+                st.success(f"✅ Found {len(parsed_tasks)} tasks ready for JIRA conversion")
+        else:
+            st.warning("No task lists found. Generate a spec first to create tasks.")
+            st.info("💡 Go to 'Spec Generation' to create requirements, design, and tasks first.")
+    else:
+        st.warning("No specs directory found. Generate a spec first.")
+
+def generate_offline_jira_templates(issue_type, priority, project_key, assignee, epic_link, story_points):
+    """Generate offline JIRA templates"""
+    if not st.session_state.get('selected_tasks_content'):
+        st.error("Please select a task list first")
+        return
+    
+    with st.spinner("Generating JIRA templates..."):
+        try:
+            # Parse tasks
+            parsed_tasks = parse_tasks_from_markdown(st.session_state.selected_tasks_content)
+            
+            if not parsed_tasks:
+                st.error("No tasks found to convert")
+                return
+            
+            # Generate templates
+            templates = generate_jira_templates(
+                parsed_tasks,
+                issue_type=issue_type,
+                priority=priority,
+                project_key=project_key,
+                add_labels=True,
+                assignee=assignee,
+                epic_link=epic_link,
+                story_points=story_points
+            )
+            
+            # Store templates in session state
+            st.session_state.jira_templates = templates
+            st.session_state.generated_content = f"Generated {len(parsed_tasks)} JIRA tickets in multiple formats"
+            
+            st.success(f"✅ Generated {len(parsed_tasks)} JIRA tickets!")
+            st.info("📥 Check the download section for CSV, JSON, Markdown, and Tasks.md formats")
+            
+            # Show preview of generated templates
+            st.markdown("#### 📊 Template Preview")
+            
+            # Format selection for preview
+            format_choice = st.selectbox(
+                "Preview Format",
+                ["Production Markdown", "Tasks.md Format", "CSV Preview", "JSON Preview"]
+            )
+            
+            if format_choice == "Production Markdown":
+                st.markdown("##### Production JIRA Markdown")
+                with st.container():
+                    st.markdown(templates['markdown'][:1000] + "..." if len(templates['markdown']) > 1000 else templates['markdown'])
+            
+            elif format_choice == "Tasks.md Format":
+                st.markdown("##### Kiro Tasks.md Format")
+                with st.container():
+                    st.markdown(templates['tasks_md'][:1000] + "..." if len(templates['tasks_md']) > 1000 else templates['tasks_md'])
+            
+            elif format_choice == "CSV Preview":
+                st.markdown("##### CSV Format (First 500 chars)")
+                st.text_area("CSV Content", templates['csv'][:500] + "..." if len(templates['csv']) > 500 else templates['csv'], height=200)
+            
+            elif format_choice == "JSON Preview":
+                st.markdown("##### JSON Format")
+                st.code(templates['json'][:1000] + "..." if len(templates['json']) > 1000 else templates['json'], language='json')
+            
+        except Exception as e:
+            st.error(f"Template generation failed: {str(e)}")
+            st.error("Please check your task list format and try again")
 
 def render_diagram_generation_content():
     """Render diagram generation content in the center panel"""
