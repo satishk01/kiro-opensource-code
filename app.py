@@ -4,6 +4,11 @@ from pathlib import Path
 from services.ai_service import AIService
 from services.file_service import FileService
 from engines.spec_engine import SpecEngine
+from integrations.jira_client import JiraClient
+import json
+import csv
+from io import StringIO
+from datetime import datetime, timedelta
 
 # Configure Streamlit page
 st.set_page_config(
@@ -39,6 +44,8 @@ def initialize_session_state():
         st.session_state.current_view = "Spec Generation"
         st.session_state.generated_content = ""
         st.session_state.user_prompt = ""
+        st.session_state.jira_client = JiraClient()
+        st.session_state.jira_templates = None
 
 def render_navigation_panel():
     """Render the left navigation panel"""
@@ -137,6 +144,35 @@ def render_actions_panel():
         
         if st.button("❌ Reject", key="reject_btn", use_container_width=True):
             handle_reject_action()
+    
+    # JIRA Configuration (if JIRA Integration is selected)
+    if st.session_state.current_view == "JIRA Integration":
+        st.markdown("---")
+        st.markdown("#### 🎯 JIRA Configuration")
+        
+        issue_type = st.selectbox(
+            "Issue Type",
+            ["Story", "Task", "Bug", "Epic"],
+            key="jira_issue_type"
+        )
+        
+        priority = st.selectbox(
+            "Priority",
+            ["Highest", "High", "Medium", "Low", "Lowest"],
+            index=2,
+            key="jira_priority"
+        )
+        
+        project_key = st.text_input(
+            "Project Key",
+            value="KIRO",
+            key="jira_project_key"
+        )
+        
+        with st.expander("Advanced Options"):
+            assignee = st.text_input("Assignee", key="jira_assignee")
+            epic_link = st.text_input("Epic Link", key="jira_epic")
+            story_points = st.text_input("Story Points", key="jira_points")
     
     # Download Section (if content available)
     if st.session_state.generated_content:
@@ -326,16 +362,38 @@ def handle_generate_action():
         if st.session_state.current_view == "Spec Generation":
             # Generate spec content
             with st.spinner("Generating spec..."):
-                result = st.session_state.spec_engine.generate_requirements(st.session_state.user_prompt)
+                result = st.session_state.spec_engine.create_requirements(st.session_state.user_prompt)
                 st.session_state.generated_content = result
                 st.success("Spec generated successfully!")
         
         elif st.session_state.current_view == "JIRA Integration":
             # Generate JIRA templates
             with st.spinner("Generating JIRA templates..."):
-                # This would integrate with the existing JIRA generation logic
-                st.session_state.generated_content = "JIRA templates generated (integration pending)"
-                st.success("JIRA templates generated!")
+                # Check if we have tasks to convert
+                if st.session_state.get("task_list"):
+                    # Parse tasks from the generated task list
+                    parsed_tasks = parse_tasks_from_markdown(st.session_state.task_list)
+                    
+                    if parsed_tasks:
+                        # Generate JIRA templates with user configuration
+                        templates = generate_jira_templates(
+                            parsed_tasks,
+                            issue_type=st.session_state.get("jira_issue_type", "Story"),
+                            priority=st.session_state.get("jira_priority", "Medium"),
+                            project_key=st.session_state.get("jira_project_key", "KIRO"),
+                            add_labels=True,
+                            assignee=st.session_state.get("jira_assignee", ""),
+                            epic_link=st.session_state.get("jira_epic", ""),
+                            story_points=st.session_state.get("jira_points", "")
+                        )
+                        
+                        st.session_state.jira_templates = templates
+                        st.session_state.generated_content = f"Generated {templates['count']} JIRA tickets from your tasks.\n\nPreview:\n\n{templates['markdown'][:500]}..."
+                        st.success("JIRA templates generated!")
+                    else:
+                        st.error("No valid tasks found to convert to JIRA tickets")
+                else:
+                    st.error("No tasks available. Generate a spec with tasks first.")
         
         elif st.session_state.current_view == "Diagram Generation":
             # Generate diagrams
@@ -414,3 +472,326 @@ def main():
 
 if __name__ == "__main__":
     main()
+def g
+enerate_jira_templates(parsed_tasks, issue_type="Story", priority="Medium", project_key="PROJ", add_labels=True, assignee="", epic_link="", story_points="", components="", fix_versions="", affects_versions=""):
+    """Generate production-grade JIRA ticket templates in different formats"""
+    
+    # Prepare template data with comprehensive JIRA fields
+    template_data = []
+    
+    for i, task in enumerate(parsed_tasks, 1):
+        labels = ["kiro-generated", "implementation"] if add_labels else []
+        
+        # Estimate story points based on task complexity
+        estimated_points = len(task.get("subtasks", [])) + 2 if not story_points else int(story_points) if story_points.isdigit() else 3
+        
+        # Enhanced description with structured format
+        description = f"""h2. Overview
+{task['title']}
+
+h2. Implementation Details
+{task['description'] if task['description'] else f'Implementation task: {task["title"]}'}
+
+h2. Acceptance Criteria
+"""
+        
+        # Add subtasks as acceptance criteria
+        if task.get("subtasks"):
+            for subtask in task["subtasks"]:
+                description += f"* {subtask['title']}\n"
+        else:
+            description += "* Task implementation completed\n* Code reviewed and approved\n* Tests written and passing\n"
+        
+        # Add requirements reference
+        if task.get("requirements"):
+            description += f"\nh2. Requirements Reference\n"
+            for req in task["requirements"]:
+                description += f"* Requirement {req}\n"
+        
+        # Set due date (2 weeks from now)
+        due_date = (datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d")
+        
+        ticket_data = {
+            # Core fields
+            "summary": task["title"],
+            "description": description,
+            "issue_type": issue_type,
+            "priority": priority,
+            "project_key": project_key,
+            
+            # Assignment and ownership
+            "assignee": assignee,
+            "reporter": "kiro-ai",
+            
+            # Planning fields
+            "story_points": estimated_points,
+            "epic_link": epic_link,
+            "due_date": due_date,
+            
+            # Categorization
+            "labels": labels,
+            "components": components.split(",") if components else ["Development"],
+            "fix_versions": fix_versions.split(",") if fix_versions else [],
+            "affects_versions": affects_versions.split(",") if affects_versions else [],
+            
+            # Custom fields
+            "environment": "Development",
+            "requirements": task.get("requirements", []),
+            "subtasks": [st["title"] for st in task.get("subtasks", [])],
+            "original_estimate": f"{estimated_points * 4}h",  # 4 hours per story point
+            "remaining_estimate": f"{estimated_points * 4}h",
+            
+            # Workflow
+            "status": "To Do",
+            "resolution": "",
+            
+            # Metadata
+            "created_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "task_number": task.get("number", str(i))
+        }
+        
+        template_data.append(ticket_data)
+    
+    # Generate CSV format with all production fields
+    csv_buffer = StringIO()
+    csv_writer = csv.writer(csv_buffer)
+    
+    # CSV headers - production-grade JIRA fields
+    csv_writer.writerow([
+        "Summary", "Description", "Issue Type", "Priority", "Project Key", 
+        "Assignee", "Reporter", "Story Points", "Epic Link", "Due Date",
+        "Labels", "Components", "Fix Versions", "Affects Versions",
+        "Environment", "Original Estimate", "Remaining Estimate",
+        "Status", "Requirements", "Subtasks", "Task Number"
+    ])
+    
+    # CSV data with all fields
+    for ticket in template_data:
+        csv_writer.writerow([
+            ticket["summary"],
+            ticket["description"].replace('\n', ' | '),  # Replace newlines for CSV
+            ticket["issue_type"],
+            ticket["priority"],
+            ticket["project_key"],
+            ticket["assignee"],
+            ticket["reporter"],
+            ticket["story_points"],
+            ticket["epic_link"],
+            ticket["due_date"],
+            "; ".join(ticket["labels"]),
+            "; ".join(ticket["components"]),
+            "; ".join(ticket["fix_versions"]),
+            "; ".join(ticket["affects_versions"]),
+            ticket["environment"],
+            ticket["original_estimate"],
+            ticket["remaining_estimate"],
+            ticket["status"],
+            "; ".join(ticket["requirements"]),
+            "; ".join(ticket["subtasks"]),
+            ticket["task_number"]
+        ])
+    
+    csv_content = csv_buffer.getvalue()
+    
+    # Generate JSON format (JIRA API ready) with all fields
+    json_tickets = []
+    for ticket in template_data:
+        json_ticket = {
+            "fields": {
+                # Core fields
+                "project": {"key": ticket["project_key"]},
+                "summary": ticket["summary"],
+                "description": ticket["description"],
+                "issuetype": {"name": ticket["issue_type"]},
+                "priority": {"name": ticket["priority"]},
+                
+                # Assignment
+                "assignee": {"name": ticket["assignee"]} if ticket["assignee"] else None,
+                "reporter": {"name": ticket["reporter"]},
+                
+                # Planning
+                "duedate": ticket["due_date"],
+                "timeoriginalestimate": ticket["original_estimate"],
+                "timeestimate": ticket["remaining_estimate"],
+                
+                # Categorization
+                "labels": ticket["labels"],
+                "components": [{"name": comp.strip()} for comp in ticket["components"]],
+                "fixVersions": [{"name": ver.strip()} for ver in ticket["fix_versions"]] if ticket["fix_versions"] else [],
+                "versions": [{"name": ver.strip()} for ver in ticket["affects_versions"]] if ticket["affects_versions"] else [],
+                
+                # Custom fields (these may need to be adjusted based on your JIRA instance)
+                "customfield_10016": ticket["story_points"],  # Story Points (common field ID)
+                "customfield_10014": ticket["epic_link"] if ticket["epic_link"] else None,  # Epic Link
+                "environment": ticket["environment"]
+            },
+            
+            # Metadata
+            "metadata": {
+                "requirements": ticket["requirements"],
+                "subtasks": ticket["subtasks"],
+                "task_number": ticket["task_number"],
+                "created_by": "kiro-ai",
+                "template_version": "1.0"
+            }
+        }
+        
+        # Remove null fields
+        json_ticket["fields"] = {k: v for k, v in json_ticket["fields"].items() if v is not None}
+        
+        json_tickets.append(json_ticket)
+    
+    json_content = json.dumps({"issues": json_tickets}, indent=2)
+    
+    # Generate Production Markdown format
+    md_content = "# JIRA Ticket Templates\n\n"
+    md_content += f"**Project:** {project_key}\n"
+    md_content += f"**Issue Type:** {issue_type}\n"
+    md_content += f"**Priority:** {priority}\n"
+    md_content += f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    
+    for i, ticket in enumerate(template_data, 1):
+        md_content += f"## Ticket {ticket['task_number']}: {ticket['summary']}\n\n"
+        
+        # Core Information
+        md_content += f"**Issue Type:** {ticket['issue_type']}\n"
+        md_content += f"**Priority:** {ticket['priority']}\n"
+        md_content += f"**Story Points:** {ticket['story_points']}\n"
+        md_content += f"**Due Date:** {ticket['due_date']}\n"
+        
+        if ticket["assignee"]:
+            md_content += f"**Assignee:** {ticket['assignee']}\n"
+        
+        if ticket["epic_link"]:
+            md_content += f"**Epic:** {ticket['epic_link']}\n"
+        
+        md_content += "\n"
+        
+        # Description
+        md_content += f"**Description:**\n{ticket['description']}\n\n"
+        
+        # Planning Information
+        md_content += f"**Estimates:**\n"
+        md_content += f"- Original: {ticket['original_estimate']}\n"
+        md_content += f"- Remaining: {ticket['remaining_estimate']}\n\n"
+        
+        # Categorization
+        if ticket["components"]:
+            md_content += f"**Components:** {', '.join(ticket['components'])}\n"
+        
+        if ticket["labels"]:
+            md_content += f"**Labels:** {', '.join(ticket['labels'])}\n"
+        
+        if ticket["requirements"]:
+            md_content += f"**Requirements:** {', '.join(ticket['requirements'])}\n"
+        
+        md_content += f"**Environment:** {ticket['environment']}\n\n"
+        
+        # Subtasks
+        if ticket["subtasks"]:
+            md_content += f"**Subtasks:**\n"
+            for subtask in ticket["subtasks"]:
+                md_content += f"- [ ] {subtask}\n"
+            md_content += "\n"
+        
+        md_content += "---\n\n"
+    
+    # Generate Tasks.md format (Kiro style)
+    tasks_md_content = "# Implementation Tasks (JIRA Export)\n\n"
+    tasks_md_content += f"Generated from Kiro on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    
+    for i, ticket in enumerate(template_data, 1):
+        task_num = ticket['task_number']
+        tasks_md_content += f"- [ ] {task_num}. {ticket['summary']}\n"
+        
+        # Add subtasks
+        if ticket["subtasks"]:
+            for j, subtask in enumerate(ticket["subtasks"], 1):
+                tasks_md_content += f"  - [ ] {task_num}.{j} {subtask}\n"
+        
+        # Add description as implementation details
+        desc_lines = ticket['description'].split('\n')
+        for line in desc_lines:
+            if line.strip() and not line.startswith('h2.'):
+                if line.startswith('*'):
+                    tasks_md_content += f"    - {line.strip('* ')}\n"
+        
+        # Add requirements reference
+        if ticket["requirements"]:
+            tasks_md_content += f"    - _Requirements: {', '.join(ticket['requirements'])}_\n"
+        
+        # Add estimates
+        tasks_md_content += f"    - _Estimate: {ticket['story_points']} points ({ticket['original_estimate']})_\n"
+        
+        tasks_md_content += "\n"
+    
+    return {
+        "csv": csv_content,
+        "json": json_content,
+        "markdown": md_content,
+        "tasks_md": tasks_md_content,
+        "count": len(template_data)
+    }
+
+def parse_tasks_from_markdown(tasks_content):
+    """Parse tasks from markdown format"""
+    tasks = []
+    lines = tasks_content.split('\n')
+    current_task = None
+    
+    for line in lines:
+        line = line.strip()
+        if line.startswith('- [ ]') and not line.startswith('  - [ ]'):
+            # Main task
+            if current_task:
+                tasks.append(current_task)
+            
+            # Extract task number and title
+            task_text = line[5:].strip()  # Remove '- [ ] '
+            if '. ' in task_text:
+                number, title = task_text.split('. ', 1)
+            else:
+                number = str(len(tasks) + 1)
+                title = task_text
+            
+            current_task = {
+                "number": number,
+                "title": title,
+                "description": "",
+                "subtasks": [],
+                "requirements": []
+            }
+        
+        elif line.startswith('  - [ ]'):
+            # Subtask
+            if current_task:
+                subtask_text = line[7:].strip()  # Remove '  - [ ] '
+                if '. ' in subtask_text:
+                    sub_number, sub_title = subtask_text.split('. ', 1)
+                else:
+                    sub_number = f"{current_task['number']}.{len(current_task['subtasks']) + 1}"
+                    sub_title = subtask_text
+                
+                current_task["subtasks"].append({
+                    "number": sub_number,
+                    "title": sub_title
+                })
+        
+        elif line.startswith('    - ') and current_task:
+            # Description or requirements
+            detail = line[6:].strip()  # Remove '    - '
+            if detail.startswith('_Requirements:'):
+                # Extract requirements
+                req_text = detail.replace('_Requirements:', '').replace('_', '').strip()
+                current_task["requirements"] = [r.strip() for r in req_text.split(',') if r.strip()]
+            else:
+                # Add to description
+                if current_task["description"]:
+                    current_task["description"] += "\n"
+                current_task["description"] += detail
+    
+    # Add the last task
+    if current_task:
+        tasks.append(current_task)
+    
+    return tasks
