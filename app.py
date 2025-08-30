@@ -643,39 +643,86 @@ def show_diagrams():
     # Placeholder for diagram generation
     st.info("Diagram generation functionality will be implemented in upcoming tasks")
 
-def generate_jira_templates(parsed_tasks, issue_type, priority, project_key, add_labels):
-    """Generate JIRA ticket templates in different formats"""
+def generate_jira_templates(parsed_tasks, issue_type, priority, project_key, add_labels, assignee="", epic_link="", story_points="", components="", fix_versions="", affects_versions=""):
+    """Generate production-grade JIRA ticket templates in different formats"""
     import json
     import csv
     from io import StringIO
+    from datetime import datetime, timedelta
     
-    # Prepare template data
+    # Prepare template data with comprehensive JIRA fields
     template_data = []
     
     for i, task in enumerate(parsed_tasks, 1):
         labels = ["kiro-generated", "implementation"] if add_labels else []
         
+        # Estimate story points based on task complexity
+        estimated_points = len(task.get("subtasks", [])) + 2 if not story_points else story_points
+        
+        # Create comprehensive ticket data
         ticket_data = {
+            # Core fields
             "summary": task["title"],
             "description": task["description"] if task["description"] else f"Implementation task: {task['title']}",
             "issue_type": issue_type,
             "priority": priority,
             "project_key": project_key,
+            
+            # Assignment and ownership
+            "assignee": assignee,
+            "reporter": "kiro-ai-assistant",
+            
+            # Planning fields
+            "story_points": estimated_points,
+            "epic_link": epic_link,
+            "original_estimate": f"{estimated_points * 4}h",  # 4 hours per story point
+            "remaining_estimate": f"{estimated_points * 4}h",
+            
+            # Versioning
+            "fix_versions": fix_versions.split(",") if fix_versions else [],
+            "affects_versions": affects_versions.split(",") if affects_versions else [],
+            
+            # Components and labels
+            "components": components.split(",") if components else ["Development"],
             "labels": labels,
+            
+            # Custom fields
+            "environment": "Development",
+            "due_date": (datetime.now() + timedelta(days=estimated_points * 2)).strftime("%Y-%m-%d"),
+            
+            # Kiro-specific fields
             "requirements": task.get("requirements", []),
-            "subtasks": [st["title"] for st in task.get("subtasks", [])]
+            "subtasks": [st["title"] for st in task.get("subtasks", [])],
+            "acceptance_criteria": [
+                f"Complete implementation of {task['title']}",
+                "Code review passed",
+                "Unit tests written and passing",
+                "Documentation updated"
+            ],
+            
+            # Status and workflow
+            "status": "To Do",
+            "resolution": "",
+            
+            # Additional metadata
+            "created_by": "Kiro AI Assistant",
+            "creation_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "task_number": task.get("number", str(i))
         }
         
         template_data.append(ticket_data)
     
-    # Generate CSV format
+    # Generate CSV format with comprehensive fields
     csv_buffer = StringIO()
     csv_writer = csv.writer(csv_buffer)
     
-    # CSV headers
+    # Comprehensive CSV headers
     csv_writer.writerow([
         "Summary", "Description", "Issue Type", "Priority", "Project Key", 
-        "Labels", "Requirements", "Subtasks"
+        "Assignee", "Reporter", "Story Points", "Epic Link", "Original Estimate",
+        "Components", "Fix Versions", "Affects Versions", "Labels", "Environment",
+        "Due Date", "Status", "Requirements", "Subtasks", "Acceptance Criteria",
+        "Created By", "Creation Date", "Task Number"
     ])
     
     # CSV data
@@ -686,14 +733,29 @@ def generate_jira_templates(parsed_tasks, issue_type, priority, project_key, add
             ticket["issue_type"],
             ticket["priority"],
             ticket["project_key"],
+            ticket["assignee"],
+            ticket["reporter"],
+            ticket["story_points"],
+            ticket["epic_link"],
+            ticket["original_estimate"],
+            "; ".join(ticket["components"]),
+            "; ".join(ticket["fix_versions"]),
+            "; ".join(ticket["affects_versions"]),
             "; ".join(ticket["labels"]),
+            ticket["environment"],
+            ticket["due_date"],
+            ticket["status"],
             "; ".join(ticket["requirements"]),
-            "; ".join(ticket["subtasks"])
+            "; ".join(ticket["subtasks"]),
+            "; ".join(ticket["acceptance_criteria"]),
+            ticket["created_by"],
+            ticket["creation_date"],
+            ticket["task_number"]
         ])
     
     csv_content = csv_buffer.getvalue()
     
-    # Generate JSON format (JIRA API ready)
+    # Generate JSON format (JIRA API ready) with comprehensive fields
     json_tickets = []
     for ticket in template_data:
         json_ticket = {
@@ -702,9 +764,37 @@ def generate_jira_templates(parsed_tasks, issue_type, priority, project_key, add
                 "summary": ticket["summary"],
                 "description": ticket["description"],
                 "issuetype": {"name": ticket["issue_type"]},
-                "priority": {"name": ticket["priority"]}
+                "priority": {"name": ticket["priority"]},
+                "reporter": {"name": ticket["reporter"]},
+                "environment": ticket["environment"],
+                "duedate": ticket["due_date"]
             }
         }
+        
+        # Add optional fields if they exist
+        if ticket["assignee"]:
+            json_ticket["fields"]["assignee"] = {"name": ticket["assignee"]}
+        
+        if ticket["story_points"]:
+            json_ticket["fields"]["customfield_10016"] = ticket["story_points"]  # Common story points field
+        
+        if ticket["epic_link"]:
+            json_ticket["fields"]["customfield_10014"] = ticket["epic_link"]  # Common epic link field
+        
+        if ticket["original_estimate"]:
+            json_ticket["fields"]["timetracking"] = {
+                "originalEstimate": ticket["original_estimate"],
+                "remainingEstimate": ticket["remaining_estimate"]
+            }
+        
+        if ticket["components"]:
+            json_ticket["fields"]["components"] = [{"name": comp.strip()} for comp in ticket["components"]]
+        
+        if ticket["fix_versions"]:
+            json_ticket["fields"]["fixVersions"] = [{"name": ver.strip()} for ver in ticket["fix_versions"]]
+        
+        if ticket["affects_versions"]:
+            json_ticket["fields"]["versions"] = [{"name": ver.strip()} for ver in ticket["affects_versions"]]
         
         if ticket["labels"]:
             json_ticket["fields"]["labels"] = ticket["labels"]
@@ -713,18 +803,43 @@ def generate_jira_templates(parsed_tasks, issue_type, priority, project_key, add
     
     json_content = json.dumps({"issues": json_tickets}, indent=2)
     
-    # Generate Markdown format
+    # Generate comprehensive Markdown format
     md_content = "# JIRA Ticket Templates\n\n"
     md_content += f"**Project:** {project_key}\n"
     md_content += f"**Issue Type:** {issue_type}\n"
-    md_content += f"**Priority:** {priority}\n\n"
+    md_content += f"**Priority:** {priority}\n"
+    md_content += f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
     
     for i, ticket in enumerate(template_data, 1):
         md_content += f"## Ticket {i}: {ticket['summary']}\n\n"
+        
+        # Core information
+        md_content += f"**Summary:** {ticket['summary']}\n\n"
         md_content += f"**Description:**\n{ticket['description']}\n\n"
         
+        # Planning information
+        md_content += f"**Issue Type:** {ticket['issue_type']}\n"
+        md_content += f"**Priority:** {ticket['priority']}\n"
+        md_content += f"**Story Points:** {ticket['story_points']}\n"
+        md_content += f"**Original Estimate:** {ticket['original_estimate']}\n"
+        md_content += f"**Due Date:** {ticket['due_date']}\n\n"
+        
+        # Assignment
+        if ticket["assignee"]:
+            md_content += f"**Assignee:** {ticket['assignee']}\n"
+        md_content += f"**Reporter:** {ticket['reporter']}\n\n"
+        
+        # Components and versions
+        if ticket["components"]:
+            md_content += f"**Components:** {', '.join(ticket['components'])}\n"
+        if ticket["fix_versions"]:
+            md_content += f"**Fix Versions:** {', '.join(ticket['fix_versions'])}\n"
+        if ticket["affects_versions"]:
+            md_content += f"**Affects Versions:** {', '.join(ticket['affects_versions'])}\n"
+        
+        # Kiro-specific information
         if ticket["requirements"]:
-            md_content += f"**Requirements:** {', '.join(ticket['requirements'])}\n\n"
+            md_content += f"**Requirements:** {', '.join(ticket['requirements'])}\n"
         
         if ticket["subtasks"]:
             md_content += f"**Subtasks:**\n"
@@ -732,15 +847,65 @@ def generate_jira_templates(parsed_tasks, issue_type, priority, project_key, add
                 md_content += f"- {subtask}\n"
             md_content += "\n"
         
+        # Acceptance criteria
+        md_content += f"**Acceptance Criteria:**\n"
+        for criteria in ticket["acceptance_criteria"]:
+            md_content += f"- {criteria}\n"
+        md_content += "\n"
+        
+        # Labels and metadata
         if ticket["labels"]:
-            md_content += f"**Labels:** {', '.join(ticket['labels'])}\n\n"
+            md_content += f"**Labels:** {', '.join(ticket['labels'])}\n"
+        md_content += f"**Environment:** {ticket['environment']}\n"
+        md_content += f"**Status:** {ticket['status']}\n\n"
         
         md_content += "---\n\n"
+    
+    # Generate Tasks.md format (Kiro-style)
+    tasks_md_content = "# Implementation Tasks (JIRA Export)\n\n"
+    tasks_md_content += f"Generated from Kiro on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    
+    for i, ticket in enumerate(template_data, 1):
+        # Main task checkbox
+        tasks_md_content += f"- [ ] {ticket['task_number']}. {ticket['summary']}\n"
+        
+        # Task details
+        tasks_md_content += f"  - **Priority:** {ticket['priority']}\n"
+        tasks_md_content += f"  - **Story Points:** {ticket['story_points']}\n"
+        tasks_md_content += f"  - **Estimate:** {ticket['original_estimate']}\n"
+        tasks_md_content += f"  - **Due Date:** {ticket['due_date']}\n"
+        
+        if ticket["assignee"]:
+            tasks_md_content += f"  - **Assignee:** {ticket['assignee']}\n"
+        
+        # Description
+        if ticket["description"]:
+            desc_lines = ticket["description"].split('\n')
+            for line in desc_lines:
+                if line.strip():
+                    tasks_md_content += f"  - {line.strip()}\n"
+        
+        # Subtasks
+        if ticket["subtasks"]:
+            for j, subtask in enumerate(ticket["subtasks"], 1):
+                tasks_md_content += f"  - [ ] {ticket['task_number']}.{j} {subtask}\n"
+        
+        # Requirements reference
+        if ticket["requirements"]:
+            tasks_md_content += f"  - _Requirements: {', '.join(ticket['requirements'])}_\n"
+        
+        # Acceptance criteria
+        tasks_md_content += f"  - **Acceptance Criteria:**\n"
+        for criteria in ticket["acceptance_criteria"]:
+            tasks_md_content += f"    - {criteria}\n"
+        
+        tasks_md_content += "\n"
     
     return {
         "csv": csv_content,
         "json": json_content,
         "markdown": md_content,
+        "tasks_md": tasks_md_content,
         "count": len(template_data)
     }
 
@@ -878,8 +1043,11 @@ def show_jira_integration():
         with st.expander("👀 Preview Tasks", expanded=False):
             st.markdown(tasks_content)
         
-        # Ticket creation options
-        col1, col2 = st.columns(2)
+        # Production-grade JIRA ticket configuration
+        st.markdown("### ⚙️ JIRA Ticket Configuration")
+        
+        # Core ticket fields
+        col1, col2, col3 = st.columns(3)
         
         with col1:
             # Get available issue types (only for online mode)
@@ -887,7 +1055,7 @@ def show_jira_integration():
                 issue_types = st.session_state.jira_client.get_issue_types()
                 issue_type_names = [it['name'] for it in issue_types] if issue_types else ['Task', 'Story', 'Bug']
             else:
-                issue_type_names = ['Task', 'Story', 'Bug', 'Epic', 'Sub-task']
+                issue_type_names = ['Task', 'Story', 'Bug', 'Epic', 'Sub-task', 'Improvement']
             
             selected_issue_type = st.selectbox(
                 "Issue Type",
@@ -899,14 +1067,79 @@ def show_jira_integration():
         with col2:
             priority_options = ['Highest', 'High', 'Medium', 'Low', 'Lowest']
             default_priority = st.selectbox(
-                "Default Priority",
+                "Priority",
                 priority_options,
                 index=2,  # Medium
-                help="Default priority for tickets"
+                help="Priority level for tickets"
             )
         
-        # Additional options
-        add_labels = st.checkbox("Add Kiro labels", value=True, help="Add 'kiro-generated' and 'implementation' labels")
+        with col3:
+            story_points = st.selectbox(
+                "Story Points (Auto-estimated)",
+                ["Auto", "1", "2", "3", "5", "8", "13", "21"],
+                index=0,
+                help="Story points for estimation (Auto calculates based on complexity)"
+            )
+        
+        # Assignment and ownership
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            assignee = st.text_input(
+                "Assignee (Optional)",
+                placeholder="john.doe",
+                help="JIRA username to assign tickets to"
+            )
+        
+        with col2:
+            epic_link = st.text_input(
+                "Epic Link (Optional)",
+                placeholder="PROJ-123",
+                help="Link tickets to an existing epic"
+            )
+        
+        # Versioning and components
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            components = st.text_input(
+                "Components",
+                value="Development",
+                placeholder="Development, Backend, Frontend",
+                help="Comma-separated list of components"
+            )
+        
+        with col2:
+            fix_versions = st.text_input(
+                "Fix Versions (Optional)",
+                placeholder="v1.0.0, v1.1.0",
+                help="Comma-separated list of target versions"
+            )
+        
+        # Additional fields
+        with st.expander("🔧 Advanced Options", expanded=False):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                affects_versions = st.text_input(
+                    "Affects Versions (Optional)",
+                    placeholder="v0.9.0",
+                    help="Versions affected by this issue"
+                )
+                
+                add_labels = st.checkbox(
+                    "Add Kiro Labels", 
+                    value=True, 
+                    help="Add 'kiro-generated' and 'implementation' labels"
+                )
+            
+            with col2:
+                environment = st.selectbox(
+                    "Environment",
+                    ["Development", "Testing", "Staging", "Production"],
+                    index=0,
+                    help="Target environment for the work"
+                )
         
         # Project key for offline mode
         if current_mode == 'offline':
@@ -969,13 +1202,19 @@ def show_jira_integration():
                         parsed_tasks = st.session_state.jira_client.parse_tasks_from_markdown(tasks_content)
                         
                         if parsed_tasks:
-                            # Generate different template formats
+                            # Generate different template formats with comprehensive fields
                             templates = generate_jira_templates(
                                 parsed_tasks, 
                                 selected_issue_type, 
                                 default_priority,
                                 offline_project_key,
-                                add_labels
+                                add_labels,
+                                assignee=assignee,
+                                epic_link=epic_link,
+                                story_points=story_points if story_points != "Auto" else "",
+                                components=components,
+                                fix_versions=fix_versions,
+                                affects_versions=affects_versions
                             )
                             
                             st.success(f"✅ Generated templates for {len(parsed_tasks)} tickets!")
@@ -989,40 +1228,102 @@ def show_jira_integration():
                             # Template format selection
                             template_format = st.radio(
                                 "Choose template format:",
-                                ["CSV (Excel compatible)", "JSON (API ready)", "Markdown (Human readable)"],
+                                ["CSV (Production JIRA)", "JSON (API ready)", "Markdown (Human readable)", "Tasks.md (Kiro format)"],
                                 horizontal=True
                             )
                             
                             # Display and download templates
-                            if template_format == "CSV (Excel compatible)":
+                            if template_format == "CSV (Production JIRA)":
                                 csv_content = templates['csv']
-                                st.text_area("CSV Template", csv_content, height=200)
+                                st.markdown("#### Production JIRA CSV with 23+ Fields")
+                                st.text_area("CSV Template (Production-grade with all JIRA fields)", csv_content, height=200)
                                 st.download_button(
-                                    "💾 Download CSV Template",
+                                    "💾 Download Production CSV",
                                     csv_content,
-                                    "jira_tickets.csv",
-                                    "text/csv"
+                                    "jira_production_tickets.csv",
+                                    "text/csv",
+                                    help="Excel-compatible CSV with all production JIRA fields"
                                 )
                             
                             elif template_format == "JSON (API ready)":
                                 json_content = templates['json']
+                                st.markdown("#### JIRA REST API Format")
                                 st.code(json_content, language='json')
                                 st.download_button(
-                                    "💾 Download JSON Template",
+                                    "💾 Download API JSON",
                                     json_content,
-                                    "jira_tickets.json",
-                                    "application/json"
+                                    "jira_api_tickets.json",
+                                    "application/json",
+                                    help="Ready for JIRA REST API bulk import"
                                 )
                             
-                            else:  # Markdown
+                            elif template_format == "Markdown (Human readable)":
                                 md_content = templates['markdown']
-                                st.markdown("#### Template Preview:")
-                                st.markdown(md_content)
+                                st.markdown("#### Production JIRA Markdown")
+                                with st.container():
+                                    st.markdown(md_content)
                                 st.download_button(
-                                    "💾 Download Markdown Template",
+                                    "💾 Download Production Markdown",
                                     md_content,
-                                    "jira_tickets.md",
-                                    "text/markdown"
+                                    "jira_production_tickets.md",
+                                    "text/markdown",
+                                    help="Human-readable format with all JIRA fields"
+                                )
+                            
+                            else:  # Tasks.md format
+                                tasks_md_content = templates['tasks_md']
+                                st.markdown("#### Kiro Tasks.md Format")
+                                st.markdown("Perfect for continuing work in Kiro or importing back into specs:")
+                                with st.container():
+                                    st.markdown(tasks_md_content)
+                                st.download_button(
+                                    "💾 Download Tasks.md",
+                                    tasks_md_content,
+                                    "implementation_tasks.md",
+                                    "text/markdown",
+                                    help="Kiro-compatible tasks format for specs"
+                                )
+                            
+                            # Quick download section for all formats
+                            st.markdown("---")
+                            st.markdown("#### 📥 Quick Downloads - All Formats")
+                            
+                            col1, col2, col3, col4 = st.columns(4)
+                            
+                            with col1:
+                                st.download_button(
+                                    "📊 Production CSV",
+                                    templates['csv'],
+                                    "jira_production.csv",
+                                    "text/csv",
+                                    help="23+ JIRA fields for Excel import"
+                                )
+                            
+                            with col2:
+                                st.download_button(
+                                    "🔗 API JSON",
+                                    templates['json'],
+                                    "jira_api.json",
+                                    "application/json",
+                                    help="JIRA REST API ready"
+                                )
+                            
+                            with col3:
+                                st.download_button(
+                                    "📝 Production MD",
+                                    templates['markdown'],
+                                    "jira_production.md",
+                                    "text/markdown",
+                                    help="Human-readable documentation"
+                                )
+                            
+                            with col4:
+                                st.download_button(
+                                    "✅ Tasks.md",
+                                    templates['tasks_md'],
+                                    "tasks.md",
+                                    "text/markdown",
+                                    help="Kiro spec format"
                                 )
                         
                         else:
