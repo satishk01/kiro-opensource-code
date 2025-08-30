@@ -255,6 +255,8 @@ def render_actions_panel():
         
         if st.session_state.current_view == "JIRA Integration":
             render_jira_download_options()
+        elif st.session_state.current_view == "Spec Generation":
+            render_spec_download_options()
         else:
             st.download_button(
                 "📄 Download Content",
@@ -425,6 +427,82 @@ def render_settings_content():
         st.markdown(f"**Specs Found:** {spec_count}")
     else:
         st.markdown("**Specs Found:** 0")
+
+def render_spec_download_options():
+    """Render spec-specific download options"""
+    workflow_state = st.session_state.get('spec_workflow_state', 'requirements')
+    
+    # Individual file downloads
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.session_state.get('spec_requirements'):
+            st.download_button(
+                "📋 Requirements",
+                st.session_state.spec_requirements,
+                "requirements.md",
+                "text/markdown",
+                use_container_width=True
+            )
+        else:
+            st.button("📋 Requirements", disabled=True, use_container_width=True)
+    
+    with col2:
+        if st.session_state.get('spec_design'):
+            st.download_button(
+                "🎨 Design",
+                st.session_state.spec_design,
+                "design.md",
+                "text/markdown",
+                use_container_width=True
+            )
+        else:
+            st.button("🎨 Design", disabled=True, use_container_width=True)
+    
+    with col3:
+        if st.session_state.get('spec_tasks'):
+            st.download_button(
+                "✅ Tasks",
+                st.session_state.spec_tasks,
+                "tasks.md",
+                "text/markdown",
+                use_container_width=True
+            )
+        else:
+            st.button("✅ Tasks", disabled=True, use_container_width=True)
+    
+    # Complete spec package download
+    if (st.session_state.get('spec_requirements') and 
+        st.session_state.get('spec_design') and 
+        st.session_state.get('spec_tasks')):
+        
+        st.markdown("---")
+        
+        # Create combined spec document
+        combined_spec = f"""# Complete Specification
+
+## Requirements
+{st.session_state.spec_requirements}
+
+---
+
+## Design
+{st.session_state.spec_design}
+
+---
+
+## Implementation Tasks
+{st.session_state.spec_tasks}
+"""
+        
+        st.download_button(
+            "📦 Complete Spec Package",
+            combined_spec,
+            f"{st.session_state.get('spec_feature_name', 'complete_spec')}.md",
+            "text/markdown",
+            use_container_width=True,
+            type="primary"
+        )
 
 def render_jira_download_options():
     """Render JIRA-specific download options"""
@@ -637,11 +715,13 @@ def handle_accept_action():
             if st.session_state.get('spec_workflow_state') == 'requirements':
                 st.session_state.spec_workflow_state = 'design'
                 st.success("Requirements accepted! Proceeding to design phase...")
-                st.rerun()
+                # Automatically proceed to design generation
+                handle_spec_workflow()
             elif st.session_state.get('spec_workflow_state') == 'design':
                 st.session_state.spec_workflow_state = 'tasks'
                 st.success("Design accepted! Proceeding to task creation...")
-                st.rerun()
+                # Automatically proceed to task generation
+                handle_spec_workflow()
             elif st.session_state.get('spec_workflow_state') == 'tasks':
                 st.success("Tasks accepted! Spec workflow complete!")
                 st.session_state.spec_workflow_state = 'complete'
