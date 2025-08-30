@@ -470,10 +470,7 @@ def main():
     with col3:
         render_actions_panel()
 
-if __name__ == "__main__":
-    main()
-def g
-enerate_jira_templates(parsed_tasks, issue_type="Story", priority="Medium", project_key="PROJ", add_labels=True, assignee="", epic_link="", story_points="", components="", fix_versions="", affects_versions=""):
+def generate_jira_templates(parsed_tasks, issue_type="Story", priority="Medium", project_key="PROJ", add_labels=True, assignee="", epic_link="", story_points="", components="", fix_versions="", affects_versions=""):
     """Generate production-grade JIRA ticket templates in different formats"""
     
     # Prepare template data with comprehensive JIRA fields
@@ -795,3 +792,6 @@ def parse_tasks_from_markdown(tasks_content):
         tasks.append(current_task)
     
     return tasks
+if __n
+ame__ == "__main__":
+    main()
