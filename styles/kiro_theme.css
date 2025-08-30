@@ -1,16 +1,19 @@
-/* Kiro Theme CSS */
+/* Kiro Light Theme CSS */
 :root {
     --kiro-primary: #2563eb;
     --kiro-secondary: #64748b;
-    --kiro-background: #0f172a;
-    --kiro-surface: #1e293b;
-    --kiro-text: #f8fafc;
-    --kiro-text-secondary: #cbd5e1;
-    --kiro-accent: #06b6d4;
+    --kiro-background: #ffffff;
+    --kiro-surface: #f8fafc;
+    --kiro-surface-secondary: #f1f5f9;
+    --kiro-text: #1e293b;
+    --kiro-text-secondary: #64748b;
+    --kiro-accent: #0ea5e9;
     --kiro-success: #10b981;
     --kiro-warning: #f59e0b;
     --kiro-error: #ef4444;
-    --kiro-border: #334155;
+    --kiro-border: #e2e8f0;
+    --kiro-border-light: #f1f5f9;
+    --kiro-shadow: rgba(15, 23, 42, 0.08);
 }
 
 /* Main app styling */
@@ -20,10 +23,78 @@
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* Sidebar styling */
-.css-1d391kg, .css-1cypcdb {
+/* Three-panel layout */
+.kiro-layout {
+    display: flex;
+    height: 100vh;
+    background-color: var(--kiro-background);
+}
+
+/* Left navigation panel */
+.kiro-nav-panel {
+    width: 280px;
     background-color: var(--kiro-surface);
     border-right: 1px solid var(--kiro-border);
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+/* Center content panel */
+.kiro-content-panel {
+    flex: 1;
+    background-color: var(--kiro-background);
+    padding: 1.5rem;
+    overflow-y: auto;
+    border-right: 1px solid var(--kiro-border);
+}
+
+/* Right actions panel */
+.kiro-actions-panel {
+    width: 320px;
+    background-color: var(--kiro-surface-secondary);
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+/* Navigation items */
+.nav-item {
+    padding: 0.75rem 1rem;
+    margin: 0.25rem 0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.nav-item:hover {
+    background-color: var(--kiro-border-light);
+    border-color: var(--kiro-border);
+}
+
+.nav-item.active {
+    background-color: var(--kiro-primary);
+    color: white;
+    font-weight: 600;
+}
+
+/* Content area */
+.content-area {
+    background-color: var(--kiro-background);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--kiro-border);
+    box-shadow: 0 1px 3px var(--kiro-shadow);
+}
+
+/* Actions panel sections */
+.actions-section {
+    background-color: var(--kiro-background);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--kiro-border);
+    box-shadow: 0 1px 3px var(--kiro-shadow);
 }
 
 /* Header styling */
@@ -51,26 +122,72 @@
 
 /* Button styling */
 .stButton > button {
-    background: linear-gradient(135deg, var(--kiro-primary), #1d4ed8);
-    color: var(--kiro-text);
+    background-color: var(--kiro-primary);
+    color: white;
     border: none;
     border-radius: 8px;
     padding: 0.75rem 1.5rem;
     font-weight: 600;
-}.stButt
-on > button:hover {
-    background: linear-gradient(135deg, #1d4ed8, var(--kiro-primary));
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px var(--kiro-shadow);
+}
+
+.stButton > button:hover {
+    background-color: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+/* Action buttons */
+.action-button {
+    width: 100%;
+    margin: 0.5rem 0;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--kiro-border);
+    background-color: var(--kiro-background);
+    color: var(--kiro-text);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-button:hover {
+    background-color: var(--kiro-surface);
+    border-color: var(--kiro-primary);
+}
+
+.action-button.primary {
+    background-color: var(--kiro-primary);
+    color: white;
+    border-color: var(--kiro-primary);
+}
+
+.action-button.success {
+    background-color: var(--kiro-success);
+    color: white;
+    border-color: var(--kiro-success);
+}
+
+.action-button.warning {
+    background-color: var(--kiro-warning);
+    color: white;
+    border-color: var(--kiro-warning);
 }
 
 /* Text input styling */
 .stTextInput > div > div > input, .stTextArea > div > div > textarea {
-    background-color: var(--kiro-surface);
+    background-color: var(--kiro-background);
     color: var(--kiro-text);
-    border: 2px solid var(--kiro-border);
+    border: 1px solid var(--kiro-border);
     border-radius: 8px;
     padding: 0.75rem;
+    transition: border-color 0.2s ease;
+}
+
+.stTextInput > div > div > input:focus, .stTextArea > div > div > textarea:focus {
+    border-color: var(--kiro-primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 /* Chat message styling */
