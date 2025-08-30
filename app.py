@@ -167,21 +167,57 @@ def render_actions_panel():
     # Actions Section
     st.markdown("#### 🎯 Actions")
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.button("✨ Generate", key="generate_btn", use_container_width=True, type="primary"):
-            handle_generate_action()
+    # Show different buttons based on current view
+    if st.session_state.current_view == "Spec Generation":
+        # Spec workflow buttons
+        col1, col2 = st.columns(2)
         
-        if st.button("🔄 Regenerate", key="regenerate_btn", use_container_width=True):
-            handle_regenerate_action()
-    
-    with col2:
-        if st.button("✅ Accept", key="accept_btn", use_container_width=True):
-            handle_accept_action()
+        with col1:
+            if st.button("✨ Generate", key="generate_btn", use_container_width=True, type="primary"):
+                handle_generate_action()
+            
+            if st.button("🔄 Regenerate", key="regenerate_btn", use_container_width=True):
+                handle_regenerate_action()
         
-        if st.button("❌ Reject", key="reject_btn", use_container_width=True):
-            handle_reject_action()
+        with col2:
+            if st.button("✅ Accept", key="accept_btn", use_container_width=True):
+                handle_accept_action()
+            
+            if st.button("❌ Reject", key="reject_btn", use_container_width=True):
+                handle_reject_action()
+        
+        # New spec button
+        if st.session_state.get('spec_workflow_state') in ['design', 'tasks', 'complete']:
+            st.markdown("---")
+            if st.button("🆕 New Spec", key="new_spec_btn", use_container_width=True):
+                # Reset workflow state
+                st.session_state.spec_workflow_state = 'requirements'
+                st.session_state.spec_feature_name = None
+                st.session_state.spec_requirements = None
+                st.session_state.spec_design = None
+                st.session_state.spec_tasks = None
+                st.session_state.generated_content = ""
+                st.session_state.user_prompt = ""
+                st.success("Ready to create a new spec!")
+                st.rerun()
+    
+    else:
+        # Default buttons for other views
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("✨ Generate", key="generate_btn", use_container_width=True, type="primary"):
+                handle_generate_action()
+            
+            if st.button("🔄 Regenerate", key="regenerate_btn", use_container_width=True):
+                handle_regenerate_action()
+        
+        with col2:
+            if st.button("✅ Accept", key="accept_btn", use_container_width=True):
+                handle_accept_action()
+            
+            if st.button("❌ Reject", key="reject_btn", use_container_width=True):
+                handle_reject_action()
     
     # JIRA Configuration (if JIRA Integration is selected)
     if st.session_state.current_view == "JIRA Integration":
@@ -230,8 +266,51 @@ def render_actions_panel():
 
 def render_spec_generation_content():
     """Render spec generation content in the center panel"""
+    
+    # Show workflow progress
+    workflow_state = st.session_state.get('spec_workflow_state', 'requirements')
+    feature_name = st.session_state.get('spec_feature_name', 'New Feature')
+    
+    if workflow_state != 'requirements':
+        st.markdown("### 🚀 Spec Workflow Progress")
+        
+        # Progress indicators
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if workflow_state in ['design', 'tasks', 'complete']:
+                st.success("**1. Requirements** ✅")
+            else:
+                st.info("**1. Requirements** 🔄")
+        with col2:
+            if workflow_state in ['tasks', 'complete']:
+                st.success("**2. Design** ✅")
+            elif workflow_state == 'design':
+                st.info("**2. Design** 🔄")
+            else:
+                st.warning("**2. Design** ⏳")
+        with col3:
+            if workflow_state == 'complete':
+                st.success("**3. Tasks** ✅")
+            elif workflow_state == 'tasks':
+                st.info("**3. Tasks** 🔄")
+            else:
+                st.warning("**3. Tasks** ⏳")
+        
+        st.markdown(f"**Current Feature:** `{feature_name}`")
+        st.markdown("---")
+    
     if st.session_state.generated_content:
-        st.markdown("### Generated Content")
+        # Show current phase title
+        phase_titles = {
+            'requirements': '📋 Requirements Document',
+            'design': '🎨 Design Document', 
+            'tasks': '✅ Implementation Tasks',
+            'complete': '🎉 Spec Complete'
+        }
+        
+        current_title = phase_titles.get(workflow_state, 'Generated Content')
+        st.markdown(f"### {current_title}")
+        
         with st.container():
             st.markdown(st.session_state.generated_content)
     else:
@@ -386,6 +465,100 @@ def render_jira_download_options():
     else:
         st.info("Generate JIRA templates first to see download options")
 
+def handle_spec_workflow():
+    """Handle the complete spec workflow: Requirements -> Design -> Tasks"""
+    
+    # Initialize workflow state if not exists
+    if 'spec_workflow_state' not in st.session_state:
+        st.session_state.spec_workflow_state = 'requirements'
+        st.session_state.spec_feature_name = None
+        st.session_state.spec_requirements = None
+        st.session_state.spec_design = None
+        st.session_state.spec_tasks = None
+    
+    # Generate feature name from prompt if not exists
+    if not st.session_state.spec_feature_name and st.session_state.user_prompt:
+        # Create a simple feature name from the prompt
+        feature_name = st.session_state.user_prompt.lower().replace(' ', '-')[:50]
+        # Remove special characters
+        import re
+        feature_name = re.sub(r'[^a-z0-9-]', '', feature_name)
+        st.session_state.spec_feature_name = feature_name
+    
+    # Requirements Phase
+    if st.session_state.spec_workflow_state == 'requirements':
+        with st.spinner("Generating requirements..."):
+            try:
+                requirements = st.session_state.spec_engine.create_requirements(st.session_state.user_prompt)
+                st.session_state.spec_requirements = requirements
+                st.session_state.generated_content = requirements
+                
+                # Save requirements to file
+                save_spec_file(st.session_state.spec_feature_name, 'requirements.md', requirements)
+                
+                st.success("Requirements generated successfully!")
+                st.info("📋 Please review the requirements above. Click 'Accept' to proceed to design phase.")
+                
+            except Exception as e:
+                st.error(f"Requirements generation failed: {str(e)}")
+                return
+    
+    # Design Phase
+    elif st.session_state.spec_workflow_state == 'design':
+        with st.spinner("Generating design document..."):
+            try:
+                design = st.session_state.spec_engine.generate_design(st.session_state.spec_requirements)
+                st.session_state.spec_design = design
+                st.session_state.generated_content = design
+                
+                # Save design to file
+                save_spec_file(st.session_state.spec_feature_name, 'design.md', design)
+                
+                st.success("Design document generated successfully!")
+                st.info("🎨 Please review the design above. Click 'Accept' to proceed to task creation.")
+                
+            except Exception as e:
+                st.error(f"Design generation failed: {str(e)}")
+                return
+    
+    # Tasks Phase
+    elif st.session_state.spec_workflow_state == 'tasks':
+        with st.spinner("Generating implementation tasks..."):
+            try:
+                tasks = st.session_state.spec_engine.create_task_list(st.session_state.spec_design, st.session_state.spec_requirements)
+                st.session_state.spec_tasks = tasks
+                st.session_state.generated_content = tasks
+                
+                # Save tasks to file
+                save_spec_file(st.session_state.spec_feature_name, 'tasks.md', tasks)
+                
+                st.success("Implementation tasks generated successfully!")
+                st.info("✅ Spec workflow complete! All documents have been generated and saved.")
+                
+                # Reset workflow state for next spec
+                st.session_state.spec_workflow_state = 'complete'
+                
+            except Exception as e:
+                st.error(f"Task generation failed: {str(e)}")
+                return
+
+def save_spec_file(feature_name: str, filename: str, content: str):
+    """Save spec file to .kiro/specs directory"""
+    import os
+    from pathlib import Path
+    
+    if not feature_name:
+        return
+    
+    # Create spec directory
+    spec_dir = Path(f".kiro/specs/{feature_name}")
+    spec_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Save file
+    file_path = spec_dir / filename
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+
 def handle_generate_action():
     """Handle generate button click"""
     if not st.session_state.user_prompt.strip():
@@ -402,11 +575,8 @@ def handle_generate_action():
     
     try:
         if st.session_state.current_view == "Spec Generation":
-            # Generate spec content
-            with st.spinner("Generating spec..."):
-                result = st.session_state.spec_engine.create_requirements(st.session_state.user_prompt)
-                st.session_state.generated_content = result
-                st.success("Spec generated successfully!")
+            # Start the spec workflow
+            handle_spec_workflow()
         
         elif st.session_state.current_view == "JIRA Integration":
             # Generate JIRA templates
@@ -463,8 +633,21 @@ def handle_accept_action():
     
     try:
         if st.session_state.current_view == "Spec Generation":
-            # Save the spec content
-            st.success("Content accepted and saved!")
+            # Advance the spec workflow
+            if st.session_state.get('spec_workflow_state') == 'requirements':
+                st.session_state.spec_workflow_state = 'design'
+                st.success("Requirements accepted! Proceeding to design phase...")
+                st.rerun()
+            elif st.session_state.get('spec_workflow_state') == 'design':
+                st.session_state.spec_workflow_state = 'tasks'
+                st.success("Design accepted! Proceeding to task creation...")
+                st.rerun()
+            elif st.session_state.get('spec_workflow_state') == 'tasks':
+                st.success("Tasks accepted! Spec workflow complete!")
+                st.session_state.spec_workflow_state = 'complete'
+            else:
+                st.success("Content accepted and saved!")
+                
         elif st.session_state.current_view == "JIRA Integration":
             # Save JIRA templates
             st.success("JIRA templates accepted!")
@@ -478,8 +661,18 @@ def handle_accept_action():
 def handle_reject_action():
     """Handle reject button click"""
     if st.session_state.generated_content:
+        if st.session_state.current_view == "Spec Generation":
+            # Clear current step content for regeneration
+            current_state = st.session_state.get('spec_workflow_state', 'requirements')
+            if current_state == 'requirements':
+                st.session_state.spec_requirements = None
+            elif current_state == 'design':
+                st.session_state.spec_design = None
+            elif current_state == 'tasks':
+                st.session_state.spec_tasks = None
+        
         st.session_state.generated_content = ""
-        st.warning("Content rejected and cleared")
+        st.warning("Content rejected and cleared. Click 'Generate' to create new content.")
         st.rerun()
     else:
         st.warning("No content to reject")
