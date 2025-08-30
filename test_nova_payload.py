@@ -15,7 +15,8 @@ def test_nova_payload_format():
         max_tokens = 4096
         temperature = 0.7
         
-        messages = [{"role": "user", "content": prompt}]
+        # Nova Pro expects content to be an array of content objects
+        messages = [{"role": "user", "content": [{"text": prompt}]}]
         
         payload = {
             "messages": messages,

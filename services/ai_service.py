@@ -147,7 +147,8 @@ class AIService:
         """Prepare payload for Nova models"""
         config = self.model_configs[self.current_model]
         
-        messages = [{"role": "user", "content": prompt}]
+        # Nova Pro expects content to be an array of content objects
+        messages = [{"role": "user", "content": [{"text": prompt}]}]
         
         payload = {
             "messages": messages,
