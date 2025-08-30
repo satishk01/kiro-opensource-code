@@ -1370,41 +1370,84 @@ def show_jira_integration():
             
             templates = st.session_state.jira_templates
             
-            col1, col2, col3 = st.columns(3)
+            # Metrics
+            st.metric("Templates Generated", templates['count'])
+            
+            # Download options for all formats
+            st.markdown("#### 📥 Download Templates")
+            
+            col1, col2, col3, col4 = st.columns(4)
             
             with col1:
-                st.metric("Templates Generated", templates['count'])
+                st.download_button(
+                    "📊 Production CSV",
+                    templates['csv'],
+                    "jira_production_tickets.csv",
+                    "text/csv",
+                    help="23+ JIRA fields for Excel import"
+                )
             
             with col2:
                 st.download_button(
-                    "💾 Download CSV",
-                    templates['csv'],
-                    "jira_tickets.csv",
-                    "text/csv"
+                    "🔗 API JSON",
+                    templates['json'],
+                    "jira_api_tickets.json",
+                    "application/json",
+                    help="JIRA REST API ready format"
                 )
             
             with col3:
                 st.download_button(
-                    "💾 Download JSON",
-                    templates['json'],
-                    "jira_tickets.json",
-                    "application/json"
+                    "📝 Production MD",
+                    templates['markdown'],
+                    "jira_production_tickets.md",
+                    "text/markdown",
+                    help="Human-readable documentation"
+                )
+            
+            with col4:
+                st.download_button(
+                    "✅ Tasks.md",
+                    templates['tasks_md'],
+                    "implementation_tasks.md",
+                    "text/markdown",
+                    help="Kiro-compatible tasks format"
                 )
             
             # Show template preview
             with st.expander("👀 Template Preview", expanded=False):
                 format_choice = st.selectbox(
                     "Preview format:",
-                    ["Markdown", "CSV", "JSON"],
+                    ["Production Markdown", "Tasks.md Format", "CSV", "JSON"],
                     key="preview_format"
                 )
                 
-                if format_choice == "Markdown":
+                if format_choice == "Production Markdown":
                     st.markdown(templates['markdown'])
+                elif format_choice == "Tasks.md Format":
+                    st.markdown(templates['tasks_md'])
                 elif format_choice == "CSV":
                     st.text(templates['csv'])
                 else:
                     st.code(templates['json'], language='json')
+                
+                # Additional download for the previewed format
+                if format_choice == "Tasks.md Format":
+                    st.download_button(
+                        "💾 Download This Tasks.md",
+                        templates['tasks_md'],
+                        "preview_tasks.md",
+                        "text/markdown",
+                        key="preview_download_tasks"
+                    )
+                elif format_choice == "Production Markdown":
+                    st.download_button(
+                        "💾 Download This Markdown",
+                        templates['markdown'],
+                        "preview_production.md",
+                        "text/markdown",
+                        key="preview_download_markdown"
+                    )
         
         # Bulk Operations
         st.markdown("---")
