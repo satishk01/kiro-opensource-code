@@ -147,19 +147,19 @@ class AIService:
         """Prepare payload for Nova models"""
         config = self.model_configs[self.current_model]
         
-        full_prompt = prompt
-        if system_prompt:
-            full_prompt = f"{system_prompt}\n\nUser: {prompt}"
+        messages = [{"role": "user", "content": prompt}]
         
         payload = {
-            "inputText": full_prompt,
-            "textGenerationConfig": {
-                "maxTokenCount": config["max_tokens"],
-                "temperature": config["temperature"],
-                "stopSequences": []
+            "messages": messages,
+            "inferenceConfig": {
+                "max_new_tokens": config["max_tokens"],
+                "temperature": config["temperature"]
             }
         }
         
+        if system_prompt:
+            payload["system"] = [{"text": system_prompt}]
+            
         return payload
     
     def _invoke_model(self, payload: Dict) -> str:
@@ -179,7 +179,7 @@ class AIService:
             if "claude" in config["model_id"].lower():
                 return response_body['content'][0]['text']
             elif "nova" in config["model_id"].lower():
-                return response_body['results'][0]['outputText']
+                return response_body['output']['message']['content'][0]['text']
             else:
                 raise ValueError(f"Unknown model type: {config['model_id']}")
                 
