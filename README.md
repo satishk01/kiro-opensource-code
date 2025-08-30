@@ -105,17 +105,26 @@ See `deploy/iam-policy.json` for the complete policy.
 - View file statistics and structure
 
 ### 3. Spec Generation
-- Provide a feature description
-- Generate requirements in EARS format
-- Create design documents with architecture diagrams
-- Generate implementation tasks
+- Provide a feature description (with optional codebase context)
+- Generate requirements in EARS format with user stories
+- Create comprehensive design documents with architecture details
+- Generate implementation tasks with requirement references
+- Interactive approval workflow with editing capabilities
+- Export all documents as Markdown files
 
 ### 4. JIRA Integration
 - Configure JIRA connection settings
 - Automatically create tickets from generated tasks
 - Track progress and updates
 
-### 5. Diagram Generation
+### 5. Spec Generation Workflow
+- **Requirements Generation**: Create EARS-format requirements from feature descriptions
+- **Design Documents**: Generate comprehensive technical design documents
+- **Implementation Tasks**: Create actionable task lists with requirement references
+- **Interactive Workflow**: Step-by-step approval process with editing capabilities
+- **Document Export**: Download requirements, design, and tasks as Markdown files
+
+### 6. Diagram Generation
 - Generate ER diagrams from data models
 - Create data flow diagrams from code analysis
 - Export diagrams in various formats
@@ -186,17 +195,26 @@ python -m pytest tests/ -v
 
 ### Common Issues
 
-1. **AWS Bedrock Access Denied**
-   - Check IAM role permissions
-   - Verify Bedrock is available in your region
-   - Ensure model access is granted
+1. **AWS Bedrock Connection Error: 'BedrockRuntime' object has no attribute 'list_foundation_models'**
+   - This error occurs when using the wrong AWS client
+   - **Solution**: The app now uses separate clients for control plane (bedrock) and runtime (bedrock-runtime)
+   - **Test**: Run `python test_bedrock_connection.py` to verify your setup
+   - **IAM Permissions needed**:
+     - `bedrock:ListFoundationModels` (for listing available models)
+     - `bedrock-runtime:InvokeModel` (for using models)
 
-2. **File Upload Issues**
+2. **AWS Bedrock Access Denied**
+   - Check IAM role permissions (see deploy/iam-policy.json)
+   - Verify Bedrock is available in your region (us-east-1 recommended)
+   - Ensure model access is granted for specific model IDs
+   - Run the connection test: `python test_bedrock_connection.py`
+
+3. **File Upload Issues**
    - Check file size limits (10MB per file)
    - Verify file types are allowed
    - Check disk space on server
 
-3. **JIRA Integration Fails**
+4. **JIRA Integration Fails**
    - Verify JIRA URL and credentials
    - Check network connectivity
    - Validate project permissions

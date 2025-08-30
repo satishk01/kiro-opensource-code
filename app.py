@@ -74,10 +74,18 @@ def main():
         # Model availability check button
         if st.button("🔄 Test Connection", help="Test AWS Bedrock connectivity"):
             with st.spinner("Testing connection..."):
-                if st.session_state.ai_service.initialize_bedrock_client():
-                    st.success("✅ AWS Bedrock connection successful")
-                else:
-                    st.error("❌ AWS Bedrock connection failed")
+                try:
+                    if st.session_state.ai_service.initialize_bedrock_client():
+                        st.success("✅ AWS Bedrock connection successful")
+                        # Try to get available models
+                        available_models = st.session_state.ai_service.get_available_models()
+                        if available_models:
+                            st.info(f"Available models: {', '.join(available_models)}")
+                    else:
+                        st.error("❌ AWS Bedrock connection failed")
+                except Exception as e:
+                    st.error(f"❌ Connection test failed: {str(e)}")
+                    st.info("💡 Make sure your EC2 instance has the proper IAM role with Bedrock permissions.")
         
         st.markdown("---")
         
@@ -258,14 +266,397 @@ def show_folder_analysis():
 
 def show_spec_generation():
     st.title("📋 Spec Generation")
-    st.markdown("Generate requirements, design documents, and implementation plans")
+    st.markdown("Generate requirements, design documents, and implementation plans using Kiro's methodology")
     
-    # Placeholder for spec generation
-    st.info("Spec generation functionality will be implemented in upcoming tasks")
+    # Check if AI model is connected
+    if not st.session_state.model_connected:
+        st.warning("⚠️ Please select and connect to an AI model first from the sidebar.")
+        return
+    
+    # Initialize spec workflow state
+    if 'spec_workflow_state' not in st.session_state:
+        st.session_state.spec_workflow_state = {
+            'current_phase': 'input',
+            'feature_description': '',
+            'requirements_approved': False,
+            'design_approved': False,
+            'tasks_approved': False,
+            'requirements_content': '',
+            'design_content': '',
+            'tasks_content': ''
+        }
+    
+    workflow_state = st.session_state.spec_workflow_state
+    
+    # Progress indicator
+    st.subheader("🔄 Spec Generation Workflow")
+    
+    phases = ['Input', 'Requirements', 'Design', 'Tasks', 'Complete']
+    current_phase_index = phases.index(workflow_state['current_phase'].title()) if workflow_state['current_phase'].title() in phases else 0
+    
+    # Create progress bar
+    progress_cols = st.columns(len(phases))
+    for i, phase in enumerate(phases):
+        with progress_cols[i]:
+            if i < current_phase_index:
+                st.success(f"✅ {phase}")
+            elif i == current_phase_index:
+                st.info(f"🔄 {phase}")
+            else:
+                st.write(f"⏳ {phase}")
+    
+    st.markdown("---")
+    
+    # Phase 1: Feature Description Input
+    if workflow_state['current_phase'] == 'input':
+        st.subheader("1️⃣ Feature Description")
+        st.markdown("Describe the feature you want to build. Be as detailed as possible.")
+        
+        feature_description = st.text_area(
+            "Feature Description",
+            value=workflow_state['feature_description'],
+            height=150,
+            placeholder="Example: User authentication system with login, registration, password reset, and role-based access control...",
+            help="Provide a comprehensive description of the feature including its purpose, main functionality, and any specific requirements."
+        )
+        
+        # Optional: Include codebase context
+        include_codebase = st.checkbox(
+            "Include current codebase context",
+            value=False,
+            help="Include analysis of your current codebase to inform the spec generation"
+        )
+        
+        codebase_context = None
+        if include_codebase and st.session_state.loaded_files:
+            st.info(f"📁 Will include context from {len(st.session_state.loaded_files)} files in your project")
+            codebase_context = st.session_state.loaded_files
+        elif include_codebase and not st.session_state.loaded_files:
+            st.warning("⚠️ No codebase loaded. Go to 'Folder Analysis' first to load your project files.")
+        
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            if st.button("🚀 Generate Requirements", type="primary", disabled=not feature_description.strip()):
+                workflow_state['feature_description'] = feature_description
+                
+                with st.spinner("🧠 Generating requirements document..."):
+                    try:
+                        requirements = st.session_state.ai_service.generate_requirements(
+                            feature_description, 
+                            codebase_context
+                        )
+                        
+                        # Format as proper requirements document
+                        formatted_requirements = f"""# Requirements Document
+
+## Introduction
+
+{feature_description}
+
+## Requirements
+
+{requirements}
+"""
+                        
+                        workflow_state['requirements_content'] = formatted_requirements
+                        workflow_state['current_phase'] = 'requirements'
+                        st.rerun()
+                        
+                    except Exception as e:
+                        st.error(f"❌ Failed to generate requirements: {str(e)}")
+        
+        with col2:
+            if feature_description.strip():
+                st.success("✅ Ready to generate requirements")
+            else:
+                st.info("👆 Enter a feature description to continue")
+    
+    # Phase 2: Requirements Review and Approval
+    elif workflow_state['current_phase'] == 'requirements':
+        st.subheader("2️⃣ Requirements Review")
+        st.markdown("Review the generated requirements and approve or request changes.")
+        
+        # Display requirements
+        st.markdown("### 📋 Generated Requirements")
+        
+        # Editable requirements
+        updated_requirements = st.text_area(
+            "Requirements Document",
+            value=workflow_state['requirements_content'],
+            height=400,
+            help="Review and edit the requirements as needed. Use EARS format (WHEN/IF...THEN...SHALL)."
+        )
+        
+        workflow_state['requirements_content'] = updated_requirements
+        
+        # Action buttons
+        col1, col2, col3 = st.columns([1, 1, 2])
+        
+        with col1:
+            if st.button("✅ Approve Requirements", type="primary"):
+                workflow_state['requirements_approved'] = True
+                workflow_state['current_phase'] = 'design_generation'
+                st.success("✅ Requirements approved! Generating design...")
+                st.rerun()
+        
+        with col2:
+            if st.button("🔄 Regenerate"):
+                with st.spinner("🧠 Regenerating requirements..."):
+                    try:
+                        requirements = st.session_state.ai_service.generate_requirements(
+                            workflow_state['feature_description']
+                        )
+                        formatted_requirements = f"""# Requirements Document
+
+## Introduction
+
+{workflow_state['feature_description']}
+
+## Requirements
+
+{requirements}
+"""
+                        workflow_state['requirements_content'] = formatted_requirements
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Failed to regenerate requirements: {str(e)}")
+        
+        with col3:
+            if st.button("⬅️ Back to Input"):
+                workflow_state['current_phase'] = 'input'
+                st.rerun()
+    
+    # Phase 2.5: Design Generation (intermediate step)
+    elif workflow_state['current_phase'] == 'design_generation':
+        st.subheader("🔄 Generating Design Document...")
+        
+        with st.spinner("🧠 Creating design document based on requirements..."):
+            try:
+                codebase_context = st.session_state.loaded_files if st.session_state.loaded_files else None
+                design = st.session_state.ai_service.create_design(
+                    workflow_state['requirements_content'],
+                    codebase_context
+                )
+                
+                # Format as proper design document
+                formatted_design = f"""# Design Document
+
+## Overview
+
+This design document outlines the technical approach for implementing the feature described in the requirements.
+
+{design}
+"""
+                
+                workflow_state['design_content'] = formatted_design
+                workflow_state['current_phase'] = 'design'
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"❌ Failed to generate design: {str(e)}")
+                workflow_state['current_phase'] = 'requirements'
+                st.rerun()
+    
+    # Phase 3: Design Review and Approval
+    elif workflow_state['current_phase'] == 'design':
+        st.subheader("3️⃣ Design Review")
+        st.markdown("Review the generated design document and approve or request changes.")
+        
+        # Display design
+        st.markdown("### 🏗️ Generated Design")
+        
+        # Editable design
+        updated_design = st.text_area(
+            "Design Document",
+            value=workflow_state['design_content'],
+            height=400,
+            help="Review and edit the design document as needed."
+        )
+        
+        workflow_state['design_content'] = updated_design
+        
+        # Action buttons
+        col1, col2, col3 = st.columns([1, 1, 2])
+        
+        with col1:
+            if st.button("✅ Approve Design", type="primary"):
+                workflow_state['design_approved'] = True
+                workflow_state['current_phase'] = 'tasks_generation'
+                st.success("✅ Design approved! Generating tasks...")
+                st.rerun()
+        
+        with col2:
+            if st.button("🔄 Regenerate"):
+                workflow_state['current_phase'] = 'design_generation'
+                st.rerun()
+        
+        with col3:
+            if st.button("⬅️ Back to Requirements"):
+                workflow_state['current_phase'] = 'requirements'
+                st.rerun()
+    
+    # Phase 3.5: Tasks Generation (intermediate step)
+    elif workflow_state['current_phase'] == 'tasks_generation':
+        st.subheader("🔄 Generating Implementation Tasks...")
+        
+        with st.spinner("🧠 Creating implementation task list..."):
+            try:
+                tasks = st.session_state.ai_service.generate_tasks(workflow_state['design_content'])
+                
+                # Format as proper task document
+                if isinstance(tasks, list):
+                    # Convert task list to markdown format
+                    tasks_md = "# Implementation Plan\n\n"
+                    for i, task in enumerate(tasks, 1):
+                        if isinstance(task, dict):
+                            title = task.get('title', f'Task {i}')
+                            description = task.get('description', '')
+                            requirements_refs = task.get('requirements_refs', [])
+                            
+                            tasks_md += f"- [ ] {i}. {title}\n"
+                            if description:
+                                tasks_md += f"  - {description}\n"
+                            if requirements_refs:
+                                tasks_md += f"  - _Requirements: {', '.join(requirements_refs)}_\n"
+                            tasks_md += "\n"
+                        else:
+                            tasks_md += f"- [ ] {i}. {str(task)}\n\n"
+                else:
+                    tasks_md = f"# Implementation Plan\n\n{tasks}"
+                
+                workflow_state['tasks_content'] = tasks_md
+                workflow_state['current_phase'] = 'tasks'
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"❌ Failed to generate tasks: {str(e)}")
+                workflow_state['current_phase'] = 'design'
+                st.rerun()
+    
+    # Phase 4: Tasks Review and Approval
+    elif workflow_state['current_phase'] == 'tasks':
+        st.subheader("4️⃣ Implementation Tasks Review")
+        st.markdown("Review the generated implementation tasks and approve or request changes.")
+        
+        # Display tasks
+        st.markdown("### ✅ Generated Tasks")
+        
+        # Editable tasks
+        updated_tasks = st.text_area(
+            "Implementation Tasks",
+            value=workflow_state['tasks_content'],
+            height=400,
+            help="Review and edit the implementation tasks as needed."
+        )
+        
+        workflow_state['tasks_content'] = updated_tasks
+        
+        # Action buttons
+        col1, col2, col3 = st.columns([1, 1, 2])
+        
+        with col1:
+            if st.button("✅ Approve Tasks", type="primary"):
+                workflow_state['tasks_approved'] = True
+                workflow_state['current_phase'] = 'complete'
+                st.success("✅ Tasks approved! Spec generation complete!")
+                st.rerun()
+        
+        with col2:
+            if st.button("🔄 Regenerate"):
+                workflow_state['current_phase'] = 'tasks_generation'
+                st.rerun()
+        
+        with col3:
+            if st.button("⬅️ Back to Design"):
+                workflow_state['current_phase'] = 'design'
+                st.rerun()
+    
+    # Phase 5: Complete
+    elif workflow_state['current_phase'] == 'complete':
+        st.subheader("🎉 Spec Generation Complete!")
+        st.markdown("Your feature specification has been successfully generated.")
+        
+        # Summary
+        st.success("✅ All phases completed successfully!")
+        
+        # Download options
+        st.markdown("### 📥 Download Documents")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.download_button(
+                label="📋 Download Requirements",
+                data=workflow_state['requirements_content'],
+                file_name="requirements.md",
+                mime="text/markdown"
+            )
+        
+        with col2:
+            st.download_button(
+                label="🏗️ Download Design",
+                data=workflow_state['design_content'],
+                file_name="design.md",
+                mime="text/markdown"
+            )
+        
+        with col3:
+            st.download_button(
+                label="✅ Download Tasks",
+                data=workflow_state['tasks_content'],
+                file_name="tasks.md",
+                mime="text/markdown"
+            )
+        
+        # Preview tabs
+        st.markdown("### 👀 Document Preview")
+        
+        tab1, tab2, tab3 = st.tabs(["📋 Requirements", "🏗️ Design", "✅ Tasks"])
+        
+        with tab1:
+            st.markdown(workflow_state['requirements_content'])
+        
+        with tab2:
+            st.markdown(workflow_state['design_content'])
+        
+        with tab3:
+            st.markdown(workflow_state['tasks_content'])
+        
+        # Actions
+        st.markdown("### 🚀 Next Steps")
+        
+        col1, col2, col3 = st.columns([1, 1, 2])
+        
+        with col1:
+            if st.button("🔄 Start New Spec"):
+                # Reset workflow state
+                st.session_state.spec_workflow_state = {
+                    'current_phase': 'input',
+                    'feature_description': '',
+                    'requirements_approved': False,
+                    'design_approved': False,
+                    'tasks_approved': False,
+                    'requirements_content': '',
+                    'design_content': '',
+                    'tasks_content': ''
+                }
+                st.rerun()
+        
+        with col2:
+            if st.button("🎯 Create JIRA Tickets"):
+                st.info("💡 Go to the 'JIRA Integration' tab to create tickets from these tasks")
+        
+        # Store completed spec for other features
+        st.session_state.completed_spec = {
+            'requirements': workflow_state['requirements_content'],
+            'design': workflow_state['design_content'],
+            'tasks': workflow_state['tasks_content'],
+            'feature_description': workflow_state['feature_description']
+        }
 
 def show_diagrams():
     st.title("📊 Diagrams")
-    st.markdown("Generate ER diagrams and data flow visualizations")
+    st.markdown("Generate ER diagrams and data flow visualizations from your codebase")
     
     # Placeholder for diagram generation
     st.info("Diagram generation functionality will be implemented in upcoming tasks")

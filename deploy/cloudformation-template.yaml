@@ -51,13 +51,16 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - bedrock:InvokeModel
-                  - bedrock:InvokeModelWithResponseStream
-                  - bedrock:ListFoundationModels
-                  - bedrock:GetFoundationModel
+                  - bedrock-runtime:InvokeModel
+                  - bedrock-runtime:InvokeModelWithResponseStream
                 Resource:
                   - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0'
                   - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.nova-pro-v1:0'
+              - Effect: Allow
+                Action:
+                  - bedrock:ListFoundationModels
+                  - bedrock:GetFoundationModel
+                Resource: '*'
               - Effect: Allow
                 Action:
                   - logs:CreateLogGroup

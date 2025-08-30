@@ -10,10 +10,11 @@ class AIService:
     
     def __init__(self):
         self.bedrock_client = None
+        self.bedrock_control_client = None
         self.current_model = None
         self.model_configs = {
             "Claude Sonnet 3.5 v2": {
-                "model_id": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+                "model_id": "anthropic.claude-3-5-sonnet-20241022-v2:0",
                 "max_tokens": 4096,
                 "temperature": 0.7
             },
@@ -30,9 +31,16 @@ class AIService:
         try:
             # Use default credentials (EC2 IAM role)
             session = boto3.Session()
+            
+            # Initialize both clients - bedrock for listing models, bedrock-runtime for inference
             self.bedrock_client = session.client(
                 service_name='bedrock-runtime',
                 region_name='us-east-1'  # Adjust region as needed
+            )
+            
+            self.bedrock_control_client = session.client(
+                service_name='bedrock',
+                region_name='us-east-1'
             )
             
             # Test connection
@@ -41,33 +49,72 @@ class AIService:
             
         except NoCredentialsError:
             self.logger.error("No AWS credentials found. Ensure EC2 instance has proper IAM role.")
-            st.error("? AWS credentials not found. Please ensure EC2 instance has proper IAM role.")
+            st.error("🚨 AWS credentials not found. Please ensure EC2 instance has proper IAM role.")
             return False
         except ClientError as e:
             self.logger.error(f"AWS Bedrock client initialization failed: {e}")
-            st.error(f"? Failed to connect to AWS Bedrock: {e}")
+            st.error(f"🚨 Failed to connect to AWS Bedrock: {e}")
             return False
         except Exception as e:
             self.logger.error(f"Unexpected error initializing Bedrock client: {e}")
-            st.error(f"? Unexpected error: {e}")
+            st.error(f"🚨 Unexpected error: {e}")
             return False
     
     def _test_connection(self):
-        """Test Bedrock connection by listing available models"""
+        """Test Bedrock connection"""
         try:
-            # This is a simple test - in production you might want a more specific test
-            response = self.bedrock_client.list_foundation_models()
-            self.logger.info("Successfully connected to AWS Bedrock")
+            # Try to list models first (requires bedrock:ListFoundationModels permission)
+            try:
+                response = self.bedrock_control_client.list_foundation_models()
+                self.logger.info("Successfully connected to AWS Bedrock")
+                
+                # Verify our target models are available
+                available_models = [model['modelId'] for model in response.get('modelSummaries', [])]
+                
+                # Check if our configured models are available
+                for model_name, config in self.model_configs.items():
+                    model_id = config['model_id']
+                    if model_id not in available_models:
+                        self.logger.warning(f"Model {model_id} not found in available models")
+                        
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'AccessDeniedException':
+                    # If we can't list models, just log a warning and continue
+                    self.logger.warning("Cannot list foundation models (permission denied), but clients are initialized")
+                else:
+                    raise e
+            
         except Exception as e:
             raise ClientError(
                 error_response={'Error': {'Code': 'ConnectionTest', 'Message': str(e)}},
                 operation_name='TestConnection'
             )
     
+    def get_available_models(self) -> List[str]:
+        """Get list of available models"""
+        if not self.bedrock_control_client:
+            if not self.initialize_bedrock_client():
+                return []
+        
+        try:
+            response = self.bedrock_control_client.list_foundation_models()
+            available_models = [model['modelId'] for model in response.get('modelSummaries', [])]
+            
+            # Filter to only our configured models that are available
+            configured_available = []
+            for model_name, config in self.model_configs.items():
+                if config['model_id'] in available_models:
+                    configured_available.append(model_name)
+            
+            return configured_available
+        except Exception as e:
+            self.logger.error(f"Failed to get available models: {e}")
+            return list(self.model_configs.keys())  # Return all configured models as fallback
+    
     def select_model(self, model_name: str) -> bool:
         """Select and validate AI model"""
         if model_name not in self.model_configs:
-            st.error(f"? Unknown model: {model_name}")
+            st.error(f"🚨 Unknown model: {model_name}")
             return False
         
         if not self.bedrock_client:
@@ -75,7 +122,7 @@ class AIService:
                 return False
         
         self.current_model = model_name
-        st.success(f"? Selected model: {model_name}")
+        st.success(f"✅ Selected model: {model_name}")
         return True
     
     def _prepare_claude_payload(self, prompt: str, system_prompt: str = None) -> Dict:
