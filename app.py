@@ -647,8 +647,256 @@ def show_jira_integration():
     st.title("🎯 JIRA Integration")
     st.markdown("Create and manage JIRA tickets from generated tasks")
     
-    # Placeholder for JIRA integration
-    st.info("JIRA integration functionality will be implemented in upcoming tasks")
+    # Initialize JIRA client if not exists
+    if 'jira_client' not in st.session_state:
+        from integrations.jira_client import JiraClient
+        st.session_state.jira_client = JiraClient()
+    
+    # JIRA Configuration Section
+    st.subheader("⚙️ JIRA Configuration")
+    
+    with st.expander("🔧 Configure JIRA Connection", expanded=not st.session_state.get('jira_configured', False)):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            jira_url = st.text_input(
+                "JIRA Base URL",
+                value=st.session_state.get('jira_url', ''),
+                placeholder="https://yourcompany.atlassian.net",
+                help="Your JIRA instance URL"
+            )
+            
+            username = st.text_input(
+                "Username/Email",
+                value=st.session_state.get('jira_username', ''),
+                placeholder="your.email@company.com",
+                help="Your JIRA username or email"
+            )
+        
+        with col2:
+            api_token = st.text_input(
+                "API Token",
+                type="password",
+                value=st.session_state.get('jira_api_token', ''),
+                help="Generate an API token from your JIRA account settings"
+            )
+            
+            project_key = st.text_input(
+                "Project Key",
+                value=st.session_state.get('jira_project_key', ''),
+                placeholder="PROJ",
+                help="The key of the JIRA project where tickets will be created"
+            )
+        
+        if st.button("🔗 Connect to JIRA", type="primary"):
+            if all([jira_url, username, api_token, project_key]):
+                with st.spinner("Testing JIRA connection..."):
+                    if st.session_state.jira_client.configure(jira_url, username, api_token, project_key):
+                        st.session_state.jira_configured = True
+                        st.session_state.jira_url = jira_url
+                        st.session_state.jira_username = username
+                        st.session_state.jira_api_token = api_token
+                        st.session_state.jira_project_key = project_key
+                        st.rerun()
+                    else:
+                        st.session_state.jira_configured = False
+            else:
+                st.error("❌ Please fill in all JIRA configuration fields")
+    
+    # Show connection status
+    if st.session_state.get('jira_configured', False):
+        st.success(f"✅ Connected to JIRA project: {st.session_state.get('jira_project_key', 'Unknown')}")
+        
+        # Test connection button
+        if st.button("🔄 Test Connection"):
+            st.session_state.jira_client.test_connection()
+    else:
+        st.warning("⚠️ Please configure JIRA connection above to create tickets")
+        return
+    
+    st.markdown("---")
+    
+    # Ticket Creation Section
+    st.subheader("🎫 Create Tickets from Tasks")
+    
+    # Check if we have completed spec with tasks
+    if hasattr(st.session_state, 'completed_spec') and st.session_state.completed_spec.get('tasks'):
+        st.markdown("### 📋 Available Tasks")
+        
+        # Show preview of tasks
+        with st.expander("👀 Preview Tasks", expanded=False):
+            st.markdown(st.session_state.completed_spec['tasks'])
+        
+        # Ticket creation options
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Get available issue types
+            issue_types = st.session_state.jira_client.get_issue_types()
+            issue_type_names = [it['name'] for it in issue_types] if issue_types else ['Task', 'Story', 'Bug']
+            
+            selected_issue_type = st.selectbox(
+                "Issue Type",
+                issue_type_names,
+                index=0,
+                help="Type of JIRA tickets to create"
+            )
+        
+        with col2:
+            priority_options = ['Highest', 'High', 'Medium', 'Low', 'Lowest']
+            default_priority = st.selectbox(
+                "Default Priority",
+                priority_options,
+                index=2,  # Medium
+                help="Default priority for created tickets"
+            )
+        
+        # Additional options
+        add_labels = st.checkbox("Add Kiro labels", value=True, help="Add 'kiro-generated' and 'implementation' labels")
+        
+        # Create tickets button
+        if st.button("🚀 Create JIRA Tickets", type="primary"):
+            with st.spinner("Creating JIRA tickets from tasks..."):
+                try:
+                    created_tickets = st.session_state.jira_client.create_tickets_from_tasks(
+                        st.session_state.completed_spec['tasks'],
+                        selected_issue_type
+                    )
+                    
+                    if created_tickets:
+                        st.success(f"✅ Successfully created {len(created_tickets)} JIRA tickets!")
+                        
+                        # Store created tickets for tracking
+                        st.session_state.created_tickets = created_tickets
+                        
+                        # Show created tickets
+                        st.markdown("### 🎫 Created Tickets")
+                        
+                        for item in created_tickets:
+                            ticket = item['ticket']
+                            col1, col2, col3 = st.columns([2, 1, 1])
+                            
+                            with col1:
+                                st.markdown(f"**{ticket['key']}**: {item['task']}")
+                            
+                            with col2:
+                                st.markdown(f"[View Ticket]({ticket['url']})")
+                            
+                            with col3:
+                                st.code(ticket['key'])
+                    else:
+                        st.error("❌ No tickets were created. Check the error messages above.")
+                        
+                except Exception as e:
+                    st.error(f"❌ Failed to create tickets: {e}")
+    
+    elif hasattr(st.session_state, 'spec_workflow_state') and st.session_state.spec_workflow_state.get('tasks_content'):
+        # Use tasks from current workflow
+        st.markdown("### 📋 Current Workflow Tasks")
+        
+        with st.expander("👀 Preview Tasks", expanded=False):
+            st.markdown(st.session_state.spec_workflow_state['tasks_content'])
+        
+        # Similar ticket creation interface
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            issue_types = st.session_state.jira_client.get_issue_types()
+            issue_type_names = [it['name'] for it in issue_types] if issue_types else ['Task', 'Story', 'Bug']
+            
+            selected_issue_type = st.selectbox(
+                "Issue Type",
+                issue_type_names,
+                index=0
+            )
+        
+        with col2:
+            priority_options = ['Highest', 'High', 'Medium', 'Low', 'Lowest']
+            default_priority = st.selectbox(
+                "Default Priority",
+                priority_options,
+                index=2
+            )
+        
+        if st.button("🚀 Create JIRA Tickets from Current Tasks", type="primary"):
+            with st.spinner("Creating JIRA tickets..."):
+                try:
+                    created_tickets = st.session_state.jira_client.create_tickets_from_tasks(
+                        st.session_state.spec_workflow_state['tasks_content'],
+                        selected_issue_type
+                    )
+                    
+                    if created_tickets:
+                        st.success(f"✅ Successfully created {len(created_tickets)} JIRA tickets!")
+                        st.session_state.created_tickets = created_tickets
+                        
+                        # Show created tickets
+                        for item in created_tickets:
+                            ticket = item['ticket']
+                            st.markdown(f"**{ticket['key']}**: {item['task']} - [View]({ticket['url']})")
+                    else:
+                        st.error("❌ No tickets were created.")
+                        
+                except Exception as e:
+                    st.error(f"❌ Failed to create tickets: {e}")
+    
+    else:
+        st.info("📋 No tasks available. Generate a spec first in the 'Spec Generation' tab.")
+    
+    # Ticket Management Section
+    if st.session_state.get('created_tickets'):
+        st.markdown("---")
+        st.subheader("📊 Ticket Management")
+        
+        # Show created tickets with status
+        st.markdown("### 🎫 Your Created Tickets")
+        
+        for item in st.session_state.created_tickets:
+            ticket = item['ticket']
+            
+            with st.expander(f"🎫 {ticket['key']} - {item['task']}", expanded=False):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown(f"**Ticket Key:** {ticket['key']}")
+                    st.markdown(f"**Task:** {item['task']}")
+                    st.markdown(f"**URL:** [View in JIRA]({ticket['url']})")
+                
+                with col2:
+                    if st.button(f"🔄 Refresh Status", key=f"refresh_{ticket['key']}"):
+                        status = st.session_state.jira_client.get_ticket_status(ticket['key'])
+                        if status:
+                            st.info(f"Status: {status['status']}")
+                            st.info(f"Assignee: {status['assignee']}")
+                        else:
+                            st.error("Failed to get ticket status")
+    
+    # Bulk Operations
+    if st.session_state.get('created_tickets'):
+        st.markdown("---")
+        st.subheader("🔧 Bulk Operations")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("📋 Export Ticket List"):
+                ticket_list = []
+                for item in st.session_state.created_tickets:
+                    ticket = item['ticket']
+                    ticket_list.append(f"{ticket['key']}: {item['task']} - {ticket['url']}")
+                
+                ticket_text = "\n".join(ticket_list)
+                st.download_button(
+                    label="💾 Download Ticket List",
+                    data=ticket_text,
+                    file_name="jira_tickets.txt",
+                    mime="text/plain"
+                )
+        
+        with col2:
+            if st.button("🗑️ Clear Ticket History"):
+                del st.session_state.created_tickets
+                st.rerun()
 
 if __name__ == "__main__":
     main()
