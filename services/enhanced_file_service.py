@@ -50,7 +50,7 @@ class EnhancedFileService:
         st.subheader("📁 Enhanced Project Folder Selection")
         
         # Create tabs for different selection methods
-        tab1, tab2, tab3, tab4 = st.tabs(["🖱️ Browse", "📝 Manual Path", "📦 ZIP Upload", "🔍 Recent Projects"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["🖱️ Browse EC2", "📝 Manual Path", "💻 Local to EC2", "📦 ZIP Upload", "🔍 Recent Projects"])
         
         with tab1:
             st.markdown("**Web-Based Folder Browser**")
@@ -200,7 +200,136 @@ class EnhancedFileService:
                 if extracted_path:
                     return extracted_path
         
-        with tab4:
+        with tab3:
+            st.markdown("**Transfer Local Project to EC2**")
+            st.markdown("Multiple ways to get your local laptop project onto this EC2 instance.")
+            
+            # Method selection
+            method = st.selectbox(
+                "Choose transfer method:",
+                [
+                    "Select a method...",
+                    "📦 Upload ZIP file (Recommended)",
+                    "📁 Upload individual files",
+                    "🔄 SSH/SCP Commands",
+                    "☁️ Git Clone from Repository",
+                    "🌐 Download from URL"
+                ],
+                key="transfer_method"
+            )
+            
+            if method == "📦 Upload ZIP file (Recommended)":
+                st.markdown("### 📦 ZIP File Upload")
+                st.markdown("**Step 1:** Create a ZIP file of your local project")
+                st.code("""
+# On your laptop:
+# 1. Right-click your project folder
+# 2. Select "Send to" > "Compressed folder" (Windows)
+# 3. Or use: zip -r myproject.zip /path/to/project (Linux/Mac)
+                """)
+                
+                st.markdown("**Step 2:** Upload the ZIP file")
+                uploaded_zip = st.file_uploader(
+                    "Choose ZIP file from your laptop",
+                    type=['zip'],
+                    help="Select the ZIP file containing your project",
+                    key="local_zip_upload"
+                )
+                
+                if uploaded_zip:
+                    if st.button("🚀 Extract and Use Project", type="primary"):
+                        extracted_path = self.handle_enhanced_zip_upload(uploaded_zip)
+                        if extracted_path:
+                            st.success(f"✅ Project uploaded and extracted!")
+                            st.info(f"📁 Project location: {extracted_path}")
+                            return extracted_path
+            
+            elif method == "📁 Upload individual files":
+                st.markdown("### 📁 Individual File Upload")
+                st.warning("⚠️ This method is suitable for small projects only (< 20 files)")
+                
+                uploaded_files = st.file_uploader(
+                    "Choose files from your laptop",
+                    accept_multiple_files=True,
+                    help="Select multiple files from your project",
+                    key="individual_files_upload"
+                )
+                
+                if uploaded_files:
+                    if st.button("📁 Create Project from Files", type="primary"):
+                        project_path = self._create_project_from_files(uploaded_files)
+                        if project_path:
+                            return project_path
+            
+            elif method == "🔄 SSH/SCP Commands":
+                st.markdown("### 🔄 SSH/SCP Transfer Commands")
+                st.markdown("Use these commands on your laptop to transfer files:")
+                
+                # Get EC2 instance info
+                import socket
+                hostname = socket.gethostname()
+                
+                st.code(f"""
+# From your laptop terminal:
+
+# Option 1: SCP (Secure Copy)
+scp -r /path/to/your/project ec2-user@{hostname}:~/uploaded-projects/
+
+# Option 2: rsync (if available)
+rsync -avz /path/to/your/project/ ec2-user@{hostname}:~/uploaded-projects/myproject/
+
+# Then in this interface, browse to ~/uploaded-projects/myproject
+                """)
+                
+                st.info("💡 After running these commands, use the 'Browse EC2' tab to navigate to ~/uploaded-projects/")
+                
+                # Quick navigation to uploaded projects
+                uploaded_projects_path = os.path.expanduser("~/uploaded-projects")
+                if st.button("📁 Go to Uploaded Projects Folder"):
+                    if not Path(uploaded_projects_path).exists():
+                        Path(uploaded_projects_path).mkdir(parents=True, exist_ok=True)
+                    return uploaded_projects_path
+            
+            elif method == "☁️ Git Clone from Repository":
+                st.markdown("### ☁️ Git Clone from Repository")
+                st.markdown("Clone your project directly from a Git repository:")
+                
+                repo_url = st.text_input(
+                    "Git Repository URL",
+                    placeholder="https://github.com/username/repository.git",
+                    help="Enter the URL of your Git repository",
+                    key="git_repo_url"
+                )
+                
+                clone_path = st.text_input(
+                    "Clone to directory",
+                    value=os.path.expanduser("~/git-projects"),
+                    help="Directory where the project will be cloned",
+                    key="git_clone_path"
+                )
+                
+                if repo_url and st.button("🔄 Clone Repository", type="primary"):
+                    cloned_path = self._clone_git_repository(repo_url, clone_path)
+                    if cloned_path:
+                        return cloned_path
+            
+            elif method == "🌐 Download from URL":
+                st.markdown("### 🌐 Download from URL")
+                st.markdown("Download a ZIP file from a URL (e.g., GitHub releases):")
+                
+                download_url = st.text_input(
+                    "Download URL",
+                    placeholder="https://github.com/user/repo/archive/main.zip",
+                    help="Enter the URL of a ZIP file to download",
+                    key="download_url"
+                )
+                
+                if download_url and st.button("⬇️ Download and Extract", type="primary"):
+                    downloaded_path = self._download_and_extract(download_url)
+                    if downloaded_path:
+                        return downloaded_path
+        
+        with tab5:
             st.markdown("**Recent and Common Locations**")
             
             # Recent projects (stored in session state)
@@ -912,3 +1041,106 @@ class EnhancedFileService:
             standards["Documentation"] = documentation_standards
         
         return standards
+    
+    def _create_project_from_files(self, uploaded_files) -> Optional[str]:
+        """Create a project directory from uploaded individual files"""
+        try:
+            # Create project directory
+            project_name = f"uploaded_project_{len(uploaded_files)}_files"
+            project_path = os.path.join(tempfile.gettempdir(), project_name)
+            Path(project_path).mkdir(parents=True, exist_ok=True)
+            
+            with st.spinner(f"Creating project from {len(uploaded_files)} files..."):
+                for uploaded_file in uploaded_files:
+                    # Save each file
+                    file_path = os.path.join(project_path, uploaded_file.name)
+                    
+                    # Create subdirectories if needed
+                    Path(file_path).parent.mkdir(parents=True, exist_ok=True)
+                    
+                    with open(file_path, "wb") as f:
+                        f.write(uploaded_file.getbuffer())
+            
+            st.success(f"✅ Created project with {len(uploaded_files)} files")
+            st.info(f"📁 Project location: {project_path}")
+            return project_path
+            
+        except Exception as e:
+            st.error(f"❌ Error creating project from files: {e}")
+            return None
+    
+    def _clone_git_repository(self, repo_url: str, clone_path: str) -> Optional[str]:
+        """Clone a Git repository"""
+        try:
+            import subprocess
+            
+            # Ensure clone directory exists
+            Path(clone_path).mkdir(parents=True, exist_ok=True)
+            
+            # Extract repository name from URL
+            repo_name = repo_url.split('/')[-1].replace('.git', '')
+            full_clone_path = os.path.join(clone_path, repo_name)
+            
+            with st.spinner(f"Cloning repository {repo_name}..."):
+                # Run git clone command
+                result = subprocess.run(
+                    ["git", "clone", repo_url, full_clone_path],
+                    capture_output=True,
+                    text=True,
+                    timeout=300  # 5 minute timeout
+                )
+                
+                if result.returncode == 0:
+                    st.success(f"✅ Successfully cloned repository!")
+                    st.info(f"📁 Repository location: {full_clone_path}")
+                    return full_clone_path
+                else:
+                    st.error(f"❌ Git clone failed: {result.stderr}")
+                    return None
+                    
+        except subprocess.TimeoutExpired:
+            st.error("❌ Git clone timed out (5 minutes)")
+            return None
+        except FileNotFoundError:
+            st.error("❌ Git is not installed on this system")
+            st.info("💡 Use the ZIP upload method instead")
+            return None
+        except Exception as e:
+            st.error(f"❌ Error cloning repository: {e}")
+            return None
+    
+    def _download_and_extract(self, download_url: str) -> Optional[str]:
+        """Download and extract a ZIP file from URL"""
+        try:
+            import urllib.request
+            import tempfile
+            
+            with st.spinner("Downloading file..."):
+                # Download the file
+                temp_zip = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
+                urllib.request.urlretrieve(download_url, temp_zip.name)
+                
+                # Extract the ZIP
+                extract_dir = tempfile.mkdtemp(prefix="downloaded_project_")
+                
+                with zipfile.ZipFile(temp_zip.name, 'r') as zip_ref:
+                    zip_ref.extractall(extract_dir)
+                
+                # Clean up temp ZIP
+                os.unlink(temp_zip.name)
+                
+                st.success("✅ Downloaded and extracted successfully!")
+                
+                # If there's a single root directory, use that
+                extracted_items = list(Path(extract_dir).iterdir())
+                if len(extracted_items) == 1 and extracted_items[0].is_dir():
+                    final_path = str(extracted_items[0])
+                else:
+                    final_path = extract_dir
+                
+                st.info(f"📁 Project location: {final_path}")
+                return final_path
+                
+        except Exception as e:
+            st.error(f"❌ Error downloading file: {e}")
+            return None

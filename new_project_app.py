@@ -160,7 +160,7 @@ def show_enhanced_folder_selection_fallback():
     st.subheader("📁 Enhanced Project Folder Selection")
     
     # Create tabs for different selection methods
-    tab1, tab2, tab3, tab4 = st.tabs(["🖱️ Browse", "📝 Manual Path", "📦 ZIP Upload", "🔍 Recent Projects"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🖱️ Browse EC2", "📝 Manual Path", "💻 Local to EC2", "📦 ZIP Upload", "🔍 Recent Projects"])
     
     with tab1:
         st.markdown("**Web-Based Folder Browser**")
@@ -275,6 +275,71 @@ def show_enhanced_folder_selection_fallback():
                 return folder_path
     
     with tab3:
+        st.markdown("**Transfer Local Project to EC2**")
+        st.markdown("Multiple ways to get your local laptop project onto this EC2 instance.")
+        
+        # Method selection
+        method = st.selectbox(
+            "Choose transfer method:",
+            [
+                "Select a method...",
+                "📦 Upload ZIP file (Recommended)",
+                "📁 Upload individual files",
+                "🔄 SSH/SCP Commands",
+                "☁️ Git Clone from Repository"
+            ],
+            key="transfer_method_fallback"
+        )
+        
+        if method == "📦 Upload ZIP file (Recommended)":
+            st.markdown("### 📦 ZIP File Upload")
+            st.markdown("**Step 1:** Create a ZIP file of your local project")
+            st.code("""
+# On your laptop:
+# 1. Right-click your project folder
+# 2. Select "Send to" > "Compressed folder" (Windows)
+# 3. Or use: zip -r myproject.zip /path/to/project (Linux/Mac)
+            """)
+            
+            st.markdown("**Step 2:** Upload the ZIP file")
+            uploaded_zip = st.file_uploader(
+                "Choose ZIP file from your laptop",
+                type=['zip'],
+                help="Select the ZIP file containing your project",
+                key="local_zip_upload_fallback"
+            )
+            
+            if uploaded_zip:
+                if st.button("🚀 Extract and Use Project", type="primary", key="extract_fallback"):
+                    extracted_path = handle_zip_upload(uploaded_zip)
+                    if extracted_path:
+                        st.success(f"✅ Project uploaded and extracted!")
+                        st.info(f"📁 Project location: {extracted_path}")
+                        return extracted_path
+        
+        elif method == "🔄 SSH/SCP Commands":
+            st.markdown("### 🔄 SSH/SCP Transfer Commands")
+            st.markdown("Use these commands on your laptop to transfer files:")
+            
+            # Get EC2 instance info
+            import socket
+            hostname = socket.gethostname()
+            
+            st.code(f"""
+# From your laptop terminal:
+
+# Option 1: SCP (Secure Copy)
+scp -r /path/to/your/project ec2-user@{hostname}:~/uploaded-projects/
+
+# Option 2: rsync (if available)
+rsync -avz /path/to/your/project/ ec2-user@{hostname}:~/uploaded-projects/myproject/
+
+# Then in this interface, browse to ~/uploaded-projects/myproject
+            """)
+            
+            st.info("💡 After running these commands, use the 'Browse EC2' tab to navigate to ~/uploaded-projects/")
+    
+    with tab4:
         st.markdown("**ZIP File Upload**")
         uploaded_file = st.file_uploader(
             "Upload ZIP file", 
@@ -288,7 +353,7 @@ def show_enhanced_folder_selection_fallback():
             if extracted_path:
                 return extracted_path
     
-    with tab4:
+    with tab5:
         st.markdown("**Recent and Common Locations**")
         
         # Recent projects (stored in session state)
