@@ -160,9 +160,206 @@ def show_enhanced_folder_selection_fallback():
     st.subheader("📁 Enhanced Project Folder Selection")
     
     # Create tabs for different selection methods
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🖱️ Browse EC2", "📝 Manual Path", "💻 Local to EC2", "📦 ZIP Upload", "🔍 Recent Projects"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["💻 Browse Local Folders", "🖱️ Browse EC2", "📝 Manual Path", "💻 Local to EC2", "📦 ZIP Upload", "🔍 Recent Projects"])
     
     with tab1:
+        st.markdown("**Browse Local Folders on Your Laptop**")
+        st.markdown("Navigate and select folders directly from your local computer.")
+        
+        # Initialize local browse path to user's home directory
+        if 'local_browse_path' not in st.session_state:
+            st.session_state.local_browse_path = os.path.expanduser("~")
+        
+        # Show current path
+        st.text(f"📍 Current location: {st.session_state.local_browse_path}")
+        
+        # Navigation buttons
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
+        
+        with col1:
+            if st.button("🏠 Home", key="local_home_btn"):
+                st.session_state.local_browse_path = os.path.expanduser("~")
+                st.rerun()
+        
+        with col2:
+            if st.button("⬆️ Up", key="local_up_btn"):
+                parent = str(Path(st.session_state.local_browse_path).parent)
+                if parent != st.session_state.local_browse_path:  # Prevent going above root
+                    st.session_state.local_browse_path = parent
+                    st.rerun()
+        
+        with col3:
+            if st.button("🔄 Refresh", key="local_refresh_btn"):
+                st.rerun()
+        
+        with col4:
+            # Quick navigation to common directories
+            import platform
+            system = platform.system().lower()
+            if system == "windows":
+                common_dirs = [
+                    ("📁 Documents", os.path.join(os.path.expanduser("~"), "Documents")),
+                    ("📁 Desktop", os.path.join(os.path.expanduser("~"), "Desktop")),
+                    ("📁 Downloads", os.path.join(os.path.expanduser("~"), "Downloads")),
+                    ("💻 C: Drive", "C:\\"),
+                    ("📁 Program Files", "C:\\Program Files")
+                ]
+            else:
+                common_dirs = [
+                    ("📁 Projects", os.path.expanduser("~/Projects")),
+                    ("📁 Documents", os.path.expanduser("~/Documents")),
+                    ("📁 Desktop", os.path.expanduser("~/Desktop")),
+                    ("📁 Downloads", os.path.expanduser("~/Downloads")),
+                    ("💻 Root", "/")
+                ]
+            
+            selected_quick = st.selectbox(
+                "Quick navigation:",
+                ["Select..."] + [name for name, path in common_dirs],
+                key="local_quick_nav"
+            )
+            
+            if selected_quick != "Select...":
+                for name, path in common_dirs:
+                    if name == selected_quick and Path(path).exists():
+                        st.session_state.local_browse_path = path
+                        st.rerun()
+        
+        # List directories and files in current path
+        try:
+            current_path = Path(st.session_state.local_browse_path)
+            if current_path.exists() and current_path.is_dir():
+                # Get directories and files
+                items = list(current_path.iterdir())
+                directories = [item for item in items if item.is_dir()]
+                files = [item for item in items if item.is_file()]
+                
+                directories.sort(key=lambda x: x.name.lower())
+                files.sort(key=lambda x: x.name.lower())
+                
+                # Show directories first
+                if directories:
+                    st.markdown("**📁 Folders:**")
+                    
+                    # Create columns for directory listing (3 per row)
+                    cols_per_row = 3
+                    for i in range(0, len(directories), cols_per_row):
+                        cols = st.columns(cols_per_row)
+                        for j, directory in enumerate(directories[i:i+cols_per_row]):
+                            with cols[j]:
+                                # Truncate long names
+                                display_name = directory.name
+                                if len(display_name) > 20:
+                                    display_name = display_name[:17] + "..."
+                                
+                                if st.button(f"📁 {display_name}", key=f"local_dir_{directory}", help=directory.name):
+                                    st.session_state.local_browse_path = str(directory)
+                                    st.rerun()
+                
+                # Show some files for context (first 10)
+                if files:
+                    st.markdown("**📄 Files (showing first 10):**")
+                    file_names = [f.name for f in files[:10]]
+                    if len(files) > 10:
+                        file_names.append(f"... and {len(files) - 10} more files")
+                    
+                    for file_name in file_names:
+                        st.text(f"📄 {file_name}")
+                
+                # Select current directory button
+                st.markdown("---")
+                col1, col2 = st.columns([1, 2])
+                
+                with col1:
+                    if st.button("✅ Select This Folder", type="primary", key="select_local_current"):
+                        # Validate that it's a reasonable project folder
+                        file_count = len(files)
+                        dir_count = len(directories)
+                        
+                        if file_count == 0 and dir_count == 0:
+                            st.warning("⚠️ This folder is empty. Are you sure you want to select it?")
+                        else:
+                            st.success(f"✅ Selected local folder: {st.session_state.local_browse_path}")
+                            st.info(f"📊 Contains: {file_count} files, {dir_count} folders")
+                            
+                            # Store the selected path
+                            st.session_state.current_folder = st.session_state.local_browse_path
+                            
+                            # Add to recent projects
+                            if 'recent_projects' not in st.session_state:
+                                st.session_state.recent_projects = []
+                            
+                            if st.session_state.local_browse_path not in st.session_state.recent_projects:
+                                st.session_state.recent_projects.append(st.session_state.local_browse_path)
+                                st.session_state.recent_projects = st.session_state.recent_projects[-10:]
+                            
+                            return st.session_state.local_browse_path
+                
+                with col2:
+                    st.info(f"📁 Will select: {st.session_state.local_browse_path}")
+                    if files or directories:
+                        st.text(f"📊 {len(files)} files, {len(directories)} folders")
+            
+            else:
+                st.error(f"❌ Cannot access: {st.session_state.local_browse_path}")
+                st.session_state.local_browse_path = os.path.expanduser("~")
+                st.rerun()
+                
+        except PermissionError:
+            st.error(f"❌ Permission denied: {st.session_state.local_browse_path}")
+            st.session_state.local_browse_path = os.path.expanduser("~")
+            st.rerun()
+        except Exception as e:
+            st.error(f"❌ Error browsing directory: {e}")
+            st.session_state.local_browse_path = os.path.expanduser("~")
+            st.rerun()
+        
+        # Alternative file upload method
+        st.markdown("---")
+        st.markdown("### 📤 Alternative: Upload Files from Local Folder")
+        st.markdown("If folder browsing doesn't work, you can upload files directly:")
+        
+        uploaded_files = st.file_uploader(
+            "Select multiple files from your project folder",
+            accept_multiple_files=True,
+            help="Hold Ctrl/Cmd and select multiple files from your project folder",
+            key="local_folder_files_fallback"
+        )
+        
+        if uploaded_files:
+            st.success(f"✅ Selected {len(uploaded_files)} files from your local computer")
+            
+            # Show file list
+            with st.expander(f"📄 View {len(uploaded_files)} selected files"):
+                for file in uploaded_files[:20]:  # Show first 20 files
+                    st.write(f"📄 {file.name} ({file.size} bytes)")
+                if len(uploaded_files) > 20:
+                    st.write(f"... and {len(uploaded_files) - 20} more files")
+            
+            if st.button("🚀 Create Project from Uploaded Files", type="primary", key="create_local_project_fallback"):
+                # Create project from uploaded files
+                import tempfile
+                project_name = f"uploaded_project_{len(uploaded_files)}_files"
+                project_path = os.path.join(tempfile.gettempdir(), project_name)
+                Path(project_path).mkdir(parents=True, exist_ok=True)
+                
+                with st.spinner(f"Creating project from {len(uploaded_files)} files..."):
+                    for uploaded_file in uploaded_files:
+                        # Save each file, preserving directory structure if present
+                        file_path = os.path.join(project_path, uploaded_file.name)
+                        
+                        # Create subdirectories if needed
+                        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
+                        
+                        with open(file_path, "wb") as f:
+                            f.write(uploaded_file.getbuffer())
+                
+                st.success(f"✅ Local project created successfully!")
+                st.info(f"📁 Project location: {project_path}")
+                st.session_state.current_folder = project_path
+                return project_path
+
+    with tab2:
         st.markdown("**Web-Based Folder Browser**")
         st.markdown("Browse and select folders using the web interface.")
         st.info("💡 Native OS dialogs don't work in web-based Streamlit. Use this web browser instead!")
@@ -260,7 +457,7 @@ def show_enhanced_folder_selection_fallback():
             st.session_state.browse_path = os.path.expanduser("~")
             st.rerun()
     
-    with tab2:
+    with tab3:
         st.markdown("**Manual Path Entry**")
         folder_path = st.text_input(
             "Folder Path", 
@@ -274,7 +471,7 @@ def show_enhanced_folder_selection_fallback():
             if validate_folder_path(folder_path):
                 return folder_path
     
-    with tab3:
+    with tab4:
         st.markdown("**Transfer Local Project to EC2**")
         st.markdown("Multiple ways to get your local laptop project onto this EC2 instance.")
         
@@ -339,7 +536,7 @@ rsync -avz /path/to/your/project/ ec2-user@{hostname}:~/uploaded-projects/myproj
             
             st.info("💡 After running these commands, use the 'Browse EC2' tab to navigate to ~/uploaded-projects/")
     
-    with tab4:
+    with tab5:
         st.markdown("**ZIP File Upload**")
         uploaded_file = st.file_uploader(
             "Upload ZIP file", 
@@ -353,7 +550,7 @@ rsync -avz /path/to/your/project/ ec2-user@{hostname}:~/uploaded-projects/myproj
             if extracted_path:
                 return extracted_path
     
-    with tab5:
+    with tab6:
         st.markdown("**Recent and Common Locations**")
         
         # Recent projects (stored in session state)

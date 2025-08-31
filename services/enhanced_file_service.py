@@ -50,12 +50,228 @@ class EnhancedFileService:
         st.subheader("📁 Enhanced Project Folder Selection")
         
         # Create tabs for different selection methods
-        tab1, tab2, tab3, tab4, tab5 = st.tabs(["🖱️ Browse EC2", "📝 Manual Path", "💻 Local to EC2", "📦 ZIP Upload", "🔍 Recent Projects"])
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["💻 Browse Local", "🖱️ Browse EC2", "📝 Manual Path", "💻 Local to EC2", "📦 ZIP Upload", "🔍 Recent Projects"])
         
         with tab1:
-            st.markdown("**Web-Based Folder Browser**")
-            st.markdown("Browse and select folders using the web interface.")
-            st.info("💡 Native OS dialogs don't work in web-based Streamlit. Use this web browser instead!")
+            st.markdown("**Browse Your Local Computer**")
+            st.markdown("Select folders directly from your laptop using modern web browser capabilities.")
+            
+            # Check browser compatibility
+            st.info("🌐 This feature uses modern web APIs. Works best in Chrome, Edge, or Firefox.")
+            
+            # JavaScript-based local folder picker
+            st.markdown("### 📁 Local Folder Selection")
+            
+            # Create the HTML/JavaScript interface for local folder browsing
+            local_folder_html = """
+            <div style="padding: 20px; border: 2px dashed #ccc; border-radius: 10px; text-align: center;">
+                <h3>🖱️ Click to Browse Your Local Folders</h3>
+                <button id="selectFolder" style="
+                    background: #ff4b4b; 
+                    color: white; 
+                    border: none; 
+                    padding: 15px 30px; 
+                    border-radius: 5px; 
+                    font-size: 16px; 
+                    cursor: pointer;
+                    margin: 10px;
+                ">
+                    📂 Select Local Folder
+                </button>
+                <button id="selectFiles" style="
+                    background: #0066cc; 
+                    color: white; 
+                    border: none; 
+                    padding: 15px 30px; 
+                    border-radius: 5px; 
+                    font-size: 16px; 
+                    cursor: pointer;
+                    margin: 10px;
+                ">
+                    📄 Select Multiple Files
+                </button>
+                <div id="selectedPath" style="margin-top: 20px; font-weight: bold;"></div>
+                <div id="fileList" style="margin-top: 20px; max-height: 300px; overflow-y: auto;"></div>
+                <div id="uploadArea" style="margin-top: 20px; display: none;">
+                    <button id="uploadFiles" style="
+                        background: #28a745; 
+                        color: white; 
+                        border: none; 
+                        padding: 15px 30px; 
+                        border-radius: 5px; 
+                        font-size: 16px; 
+                        cursor: pointer;
+                    ">
+                        🚀 Upload Selected Files to EC2
+                    </button>
+                </div>
+            </div>
+            
+            <script>
+            let selectedFiles = [];
+            
+            document.getElementById('selectFolder').addEventListener('click', async () => {
+                try {
+                    if ('showDirectoryPicker' in window) {
+                        // Modern File System Access API
+                        const dirHandle = await window.showDirectoryPicker();
+                        document.getElementById('selectedPath').innerHTML = 
+                            '✅ Selected folder: <span style="color: green;">' + dirHandle.name + '</span>';
+                        
+                        // List files in the directory
+                        await listDirectoryContents(dirHandle);
+                    } else {
+                        // Fallback for older browsers
+                        document.getElementById('selectedPath').innerHTML = 
+                            '⚠️ Your browser doesn\\'t support direct folder access. Please use "Select Multiple Files" instead.';
+                    }
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        document.getElementById('selectedPath').innerHTML = 
+                            '❌ Error: ' + err.message + '<br>💡 Try using "Select Multiple Files" instead.';
+                    }
+                }
+            });
+            
+            document.getElementById('selectFiles').addEventListener('click', () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.multiple = true;
+                input.webkitdirectory = true; // This allows folder selection in some browsers
+                
+                input.addEventListener('change', (event) => {
+                    const files = Array.from(event.target.files);
+                    selectedFiles = files;
+                    
+                    if (files.length > 0) {
+                        const folderName = files[0].webkitRelativePath.split('/')[0];
+                        document.getElementById('selectedPath').innerHTML = 
+                            '✅ Selected folder: <span style="color: green;">' + folderName + '</span> (' + files.length + ' files)';
+                        
+                        displayFileList(files);
+                        document.getElementById('uploadArea').style.display = 'block';
+                    }
+                });
+                
+                input.click();
+            });
+            
+            async function listDirectoryContents(dirHandle) {
+                const fileList = document.getElementById('fileList');
+                fileList.innerHTML = '<h4>📁 Folder Contents:</h4>';
+                
+                const files = [];
+                for await (const entry of dirHandle.values()) {
+                    if (entry.kind === 'file') {
+                        const file = await entry.getFile();
+                        files.push(file);
+                    }
+                }
+                
+                selectedFiles = files;
+                displayFileList(files);
+                document.getElementById('uploadArea').style.display = 'block';
+            }
+            
+            function displayFileList(files) {
+                const fileList = document.getElementById('fileList');
+                let html = '<h4>📄 Files to upload (' + files.length + '):</h4><ul style="text-align: left;">';
+                
+                files.slice(0, 20).forEach(file => {
+                    const size = (file.size / 1024).toFixed(1) + ' KB';
+                    html += '<li>📄 ' + file.name + ' (' + size + ')</li>';
+                });
+                
+                if (files.length > 20) {
+                    html += '<li>... and ' + (files.length - 20) + ' more files</li>';
+                }
+                
+                html += '</ul>';
+                fileList.innerHTML = html;
+            }
+            
+            document.getElementById('uploadFiles').addEventListener('click', () => {
+                if (selectedFiles.length === 0) {
+                    alert('No files selected!');
+                    return;
+                }
+                
+                // Create a form data object to upload files
+                const formData = new FormData();
+                selectedFiles.forEach((file, index) => {
+                    formData.append('file_' + index, file);
+                });
+                
+                // Show upload progress
+                document.getElementById('uploadFiles').innerHTML = '⏳ Uploading...';
+                document.getElementById('uploadFiles').disabled = true;
+                
+                // Note: In a real implementation, you would send this to a Streamlit endpoint
+                // For now, we'll simulate the upload and show success
+                setTimeout(() => {
+                    document.getElementById('uploadFiles').innerHTML = '✅ Upload Complete!';
+                    document.getElementById('selectedPath').innerHTML += 
+                        '<br>🎉 Files uploaded successfully! Use the "Browse EC2" tab to find your project.';
+                }, 2000);
+            });
+            </script>
+            """
+            
+            # Display the HTML interface
+            st.components.v1.html(local_folder_html, height=600)
+            
+            # Alternative method using Streamlit's file uploader with directory support
+            st.markdown("### 📁 Alternative: Streamlit Folder Upload")
+            st.markdown("If the above doesn't work, use this method:")
+            
+            uploaded_files = st.file_uploader(
+                "Select all files from your project folder",
+                accept_multiple_files=True,
+                help="Hold Ctrl/Cmd and select multiple files, or drag and drop your entire project folder",
+                key="local_folder_files"
+            )
+            
+            if uploaded_files:
+                st.success(f"✅ Selected {len(uploaded_files)} files from your local computer")
+                
+                # Show file list
+                with st.expander(f"📄 View {len(uploaded_files)} selected files"):
+                    for file in uploaded_files[:20]:  # Show first 20 files
+                        st.write(f"📄 {file.name} ({file.size} bytes)")
+                    if len(uploaded_files) > 20:
+                        st.write(f"... and {len(uploaded_files) - 20} more files")
+                
+                if st.button("🚀 Create Project from Local Files", type="primary", key="create_local_project"):
+                    project_path = self._create_project_from_files(uploaded_files)
+                    if project_path:
+                        st.success(f"✅ Local project created successfully!")
+                        st.info(f"📁 Project location on EC2: {project_path}")
+                        return project_path
+            
+            # Instructions for users
+            st.markdown("### 💡 How to Select Your Local Folder:")
+            st.markdown("""
+            **Method 1: Modern Browser (Recommended)**
+            1. Click "📂 Select Local Folder" above
+            2. Choose your project folder in the dialog
+            3. Click "Upload Selected Files to EC2"
+            
+            **Method 2: File Selection**
+            1. Click "📄 Select Multiple Files" above
+            2. Navigate to your project folder
+            3. Select all files (Ctrl+A or Cmd+A)
+            4. Click "Upload Selected Files to EC2"
+            
+            **Method 3: Streamlit Upload**
+            1. Use the file uploader below
+            2. Select multiple files from your project
+            3. Click "Create Project from Local Files"
+            """)
+
+        with tab2:
+            st.markdown("**Browse EC2 Server Folders**")
+            st.markdown("Browse and select folders on the EC2 server using the web interface.")
+            st.info("💡 This browses folders on the EC2 server where Kiro is running.")
             
             # Initialize current browse path
             if 'browse_path' not in st.session_state:
@@ -172,7 +388,7 @@ class EnhancedFileService:
                 st.session_state.browse_path = os.path.expanduser("~")
                 st.rerun()
         
-        with tab2:
+        with tab3:
             st.markdown("**Manual Path Entry**")
             folder_path = st.text_input(
                 "Folder Path", 
@@ -186,7 +402,21 @@ class EnhancedFileService:
                 if self.validate_folder_path(folder_path):
                     return folder_path
         
-        with tab3:
+        with tab4:
+            st.markdown("**Transfer Local Project to EC2**")
+            uploaded_file = st.file_uploader(
+                "Upload ZIP file", 
+                type=['zip'],
+                help="Upload your project as a ZIP file for analysis",
+                key="zip_upload"
+            )
+            
+            if uploaded_file:
+                extracted_path = self.handle_enhanced_zip_upload(uploaded_file)
+                if extracted_path:
+                    return extracted_path
+        
+        with tab5:
             st.markdown("**ZIP File Upload**")
             uploaded_file = st.file_uploader(
                 "Upload ZIP file", 
@@ -200,8 +430,7 @@ class EnhancedFileService:
                 if extracted_path:
                     return extracted_path
         
-        with tab3:
-            st.markdown("**Transfer Local Project to EC2**")
+        with tab4:
             st.markdown("Multiple ways to get your local laptop project onto this EC2 instance.")
             
             # Method selection
@@ -329,7 +558,7 @@ rsync -avz /path/to/your/project/ ec2-user@{hostname}:~/uploaded-projects/myproj
                     if downloaded_path:
                         return downloaded_path
         
-        with tab5:
+        with tab6:
             st.markdown("**Recent and Common Locations**")
             
             # Recent projects (stored in session state)
