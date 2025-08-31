@@ -608,6 +608,14 @@ class EnhancedFolderSelector:
         st.markdown("**Upload a ZIP file containing your project folder**")
         st.markdown("💡 Upload a ZIP of your entire project folder")
         
+        # Instructions
+        st.info("""
+        📦 **How to create a ZIP file:**
+        1. **Windows**: Right-click your project folder → "Send to" → "Compressed folder"
+        2. **Mac**: Right-click your project folder → "Compress [folder name]"
+        3. **Linux**: `zip -r project.zip /path/to/project/`
+        """)
+        
         uploaded_zip = st.file_uploader(
             "Select ZIP file",
             type=['zip'],
@@ -616,14 +624,93 @@ class EnhancedFolderSelector:
         )
         
         if uploaded_zip:
-            st.success(f"✅ ZIP file selected: {uploaded_zip.name}")
+            # Show ZIP file information
+            file_size = len(uploaded_zip.getvalue())
+            st.success(f"✅ ZIP file selected: **{uploaded_zip.name}**")
             
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("📦 File Size", f"{file_size // 1024} KB")
+            with col2:
+                st.metric("📄 File Type", uploaded_zip.type or "application/zip")
+            
+            # Validate ZIP file before extraction
+            try:
+                import zipfile
+                with zipfile.ZipFile(uploaded_zip, 'r') as zip_ref:
+                    file_count = len(zip_ref.namelist())
+                    st.info(f"📄 ZIP contains {file_count} files")
+                    
+                    # Show first few files as preview
+                    if file_count > 0:
+                        with st.expander("👀 Preview ZIP contents (first 10 files)"):
+                            for i, filename in enumerate(zip_ref.namelist()[:10]):
+                                st.text(f"📄 {filename}")
+                            if file_count > 10:
+                                st.text(f"... and {file_count - 10} more files")
+                
+            except zipfile.BadZipFile:
+                st.error("❌ Invalid ZIP file format")
+                return None
+            except Exception as e:
+                st.warning(f"⚠️ Could not preview ZIP contents: {e}")
+            
+            # Extract button
             if st.button("📦 Extract ZIP File", type="primary", key="extract_zip"):
                 extracted_path = self.extract_zip_file(uploaded_zip)
                 if extracted_path:
-                    st.success(f"✅ ZIP extracted to: {extracted_path}")
+                    st.success(f"🎉 **ZIP successfully extracted!**")
+                    st.info(f"📁 **Extracted to:** `{extracted_path}`")
+                    
+                    # Show what's in the extracted folder
+                    try:
+                        extracted_path_obj = Path(extracted_path)
+                        if extracted_path_obj.exists():
+                            files = list(extracted_path_obj.rglob('*'))
+                            file_files = [f for f in files if f.is_file()]
+                            dir_files = [f for f in files if f.is_dir()]
+                            
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("📄 Total Files", len(file_files))
+                            with col2:
+                                st.metric("📁 Directories", len(dir_files))
+                            with col3:
+                                total_size = sum(f.stat().st_size for f in file_files if f.exists())
+                                st.metric("💾 Total Size", f"{total_size // 1024} KB")
+                    except Exception as e:
+                        st.warning(f"Could not analyze extracted folder: {e}")
+                    
                     self.add_to_recent_selections("zip", extracted_path)
                     return extracted_path
+                else:
+                    st.error("❌ ZIP extraction failed. Please check the file and try again.")
+        
+        # Troubleshooting tips
+        with st.expander("🔧 Troubleshooting ZIP Upload"):
+            st.markdown("""
+            **Common Issues:**
+            
+            **❌ "Invalid ZIP file"**
+            - Make sure the file has a .zip extension
+            - Try creating the ZIP file again
+            - Check if the file is corrupted
+            
+            **❌ "Security risk detected"**
+            - ZIP contains files with dangerous paths (../ or absolute paths)
+            - Recreate the ZIP from your project folder directly
+            
+            **❌ "Extraction failed"**
+            - ZIP file might be corrupted
+            - File might be too large
+            - Try a smaller ZIP file first
+            
+            **✅ Best Practices:**
+            - Create ZIP from your project root folder
+            - Keep ZIP files under 100MB for best performance
+            - Use standard ZIP compression (not RAR, 7z, etc.)
+            - Avoid special characters in folder/file names
+            """)
         
         return None
     
@@ -782,29 +869,96 @@ class EnhancedFolderSelector:
             return False
     
     def extract_zip_file(self, uploaded_file) -> Optional[str]:
-        """Extract ZIP file and return path"""
+        """Extract ZIP file and return path with enhanced error handling"""
         try:
-            temp_dir = tempfile.mkdtemp(prefix=f"kiro_zip_{uploaded_file.name.replace('.zip', '')}_")
+            # Validate ZIP file
+            if not uploaded_file.name.lower().endswith('.zip'):
+                st.error("❌ Please select a valid ZIP file")
+                return None
+            
+            # Get file size for progress indication
+            file_size = len(uploaded_file.getvalue())
+            st.info(f"📦 Processing ZIP file: {uploaded_file.name} ({file_size // 1024} KB)")
+            
+            # Create temporary directory with safe name
+            safe_name = "".join(c for c in uploaded_file.name if c.isalnum() or c in ('-', '_')).rstrip()
+            temp_dir = tempfile.mkdtemp(prefix=f"kiro_zip_{safe_name}_")
             
             with st.spinner(f"Extracting {uploaded_file.name}..."):
-                with zipfile.ZipFile(uploaded_file, 'r') as zip_ref:
-                    # Security check
-                    for file_path in zip_ref.namelist():
-                        if '..' in file_path or file_path.startswith('/'):
-                            st.error("❌ Security risk detected in ZIP file")
+                try:
+                    # Test if it's a valid ZIP file
+                    with zipfile.ZipFile(uploaded_file, 'r') as zip_ref:
+                        # Get file list
+                        file_list = zip_ref.namelist()
+                        st.info(f"📄 Found {len(file_list)} files in ZIP")
+                        
+                        # Security check - prevent path traversal
+                        for file_path in file_list:
+                            if '..' in file_path or file_path.startswith('/') or file_path.startswith('\\'):
+                                st.error(f"❌ Security risk detected in ZIP file: {file_path}")
+                                return None
+                        
+                        # Test ZIP integrity
+                        bad_files = zip_ref.testzip()
+                        if bad_files:
+                            st.error(f"❌ Corrupted ZIP file detected: {bad_files}")
                             return None
-                    
-                    zip_ref.extractall(temp_dir)
+                        
+                        # Extract with progress
+                        progress_bar = st.progress(0)
+                        for i, file_info in enumerate(zip_ref.filelist):
+                            try:
+                                zip_ref.extract(file_info, temp_dir)
+                                progress_bar.progress((i + 1) / len(zip_ref.filelist))
+                            except Exception as extract_error:
+                                st.warning(f"⚠️ Could not extract file: {file_info.filename} - {extract_error}")
+                                continue
+                        
+                        progress_bar.empty()
+                        
+                except zipfile.BadZipFile:
+                    st.error("❌ Invalid or corrupted ZIP file")
+                    return None
+                except Exception as zip_error:
+                    st.error(f"❌ Error reading ZIP file: {zip_error}")
+                    return None
             
-            # If ZIP contains single root directory, use that
-            extracted_items = list(Path(temp_dir).iterdir())
-            if len(extracted_items) == 1 and extracted_items[0].is_dir():
-                return str(extracted_items[0])
-            
-            return temp_dir
+            # Verify extraction
+            try:
+                extracted_items = list(Path(temp_dir).iterdir())
+                if not extracted_items:
+                    st.error("❌ ZIP file appears to be empty or extraction failed")
+                    return None
+                
+                st.success(f"✅ Successfully extracted {len(extracted_items)} items")
+                
+                # Show extraction summary
+                files_count = 0
+                dirs_count = 0
+                for item in Path(temp_dir).rglob('*'):
+                    if item.is_file():
+                        files_count += 1
+                    elif item.is_dir():
+                        dirs_count += 1
+                
+                st.info(f"📊 Extraction summary: {files_count} files, {dirs_count} directories")
+                
+                # If ZIP contains single root directory, use that instead
+                if len(extracted_items) == 1 and extracted_items[0].is_dir():
+                    final_path = str(extracted_items[0])
+                    st.info(f"📁 Using root directory: {extracted_items[0].name}")
+                    return final_path
+                
+                return temp_dir
+                
+            except Exception as verify_error:
+                st.error(f"❌ Error verifying extraction: {verify_error}")
+                return None
             
         except Exception as e:
-            st.error(f"❌ Error extracting ZIP: {e}")
+            st.error(f"❌ Unexpected error during ZIP extraction: {e}")
+            import traceback
+            st.error(f"Debug info: {traceback.format_exc()}")
             return None
     
     def add_to_recent_selections(self, selection_type: str, path: Union[str, List[str]]):
