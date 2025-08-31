@@ -408,7 +408,7 @@ class EnhancedFileService:
                 "Upload ZIP file", 
                 type=['zip'],
                 help="Upload your project as a ZIP file for analysis",
-                key="zip_upload"
+                key="transfer_zip_upload"
             )
             
             if uploaded_file:
@@ -422,7 +422,7 @@ class EnhancedFileService:
                 "Upload ZIP file", 
                 type=['zip'],
                 help="Upload your project as a ZIP file for analysis",
-                key="zip_upload"
+                key="main_zip_upload"
             )
             
             if uploaded_file:

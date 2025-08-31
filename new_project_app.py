@@ -159,6 +159,81 @@ def show_enhanced_folder_selection_fallback():
     """Enhanced folder selection fallback implementation"""
     st.subheader("📁 Enhanced Project Folder Selection")
     
+    # Import the enhanced selector
+    try:
+        from enhanced_folder_selector import EnhancedFolderSelector
+        
+        # Use the enhanced selector
+        selector = EnhancedFolderSelector()
+        result = selector.show_selector()
+        
+        if result:
+            if isinstance(result, str):
+                # Single folder or path selected
+                st.session_state.current_folder = result
+                st.success(f"✅ Selected: {result}")
+                
+                # Load and analyze files
+                if Path(result).exists():
+                    try:
+                        files = load_files_from_path(result)
+                        if files:
+                            st.session_state.loaded_files = files
+                            st.info(f"📊 Loaded {len(files)} files for analysis")
+                            
+                            # Show file statistics
+                            show_file_statistics(files)
+                        else:
+                            st.warning("⚠️ No supported files found in the selected folder")
+                    except Exception as e:
+                        st.error(f"❌ Error loading files: {e}")
+                
+                return result
+                
+            elif isinstance(result, list):
+                # Multiple files selected
+                st.success(f"✅ Selected {len(result)} files")
+                
+                # Load the selected files
+                try:
+                    files = {}
+                    for file_path in result:
+                        if Path(file_path).exists():
+                            try:
+                                with open(file_path, 'r', encoding='utf-8') as f:
+                                    files[file_path] = f.read()
+                            except Exception:
+                                # Try binary mode for non-text files
+                                try:
+                                    with open(file_path, 'rb') as f:
+                                        files[file_path] = f.read().decode('utf-8', errors='ignore')
+                                except Exception:
+                                    st.warning(f"⚠️ Could not read file: {Path(file_path).name}")
+                    
+                    if files:
+                        st.session_state.loaded_files = files
+                        st.session_state.current_folder = "Multiple Files"
+                        st.info(f"📊 Loaded {len(files)} files for analysis")
+                        
+                        # Show file statistics
+                        show_file_statistics(files)
+                    else:
+                        st.error("❌ Could not load any of the selected files")
+                        
+                except Exception as e:
+                    st.error(f"❌ Error loading files: {e}")
+                
+                return result
+        
+        return None
+        
+    except ImportError:
+        # Fallback to original implementation if enhanced selector not available
+        st.info("💡 Using fallback folder selection method")
+        return show_original_folder_selection()
+
+def show_original_folder_selection():
+    """Original folder selection implementation as fallback"""
     # Create tabs for different selection methods
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["💻 Browse Local Folders", "🖱️ Browse EC2", "📝 Manual Path", "💻 Local to EC2", "📦 ZIP Upload", "🔍 Recent Projects"])
     
@@ -836,6 +911,79 @@ def detect_frameworks_fallback(files):
     
     return frameworks
 
+def load_files_from_path(folder_path: str) -> dict:
+    """Load files from a folder path"""
+    files = {}
+    supported_extensions = {
+        '.py', '.js', '.ts', '.tsx', '.jsx', '.java', '.cpp', '.c', '.cs', '.go', '.rs', 
+        '.php', '.rb', '.swift', '.kt', '.scala', '.vue', '.svelte', '.html', '.css', 
+        '.scss', '.sass', '.sql', '.json', '.yaml', '.yml', '.xml', '.md', '.txt', 
+        '.sh', '.bat', '.dockerfile', '.gitignore', '.env'
+    }
+    
+    try:
+        folder = Path(folder_path)
+        for file_path in folder.rglob('*'):
+            if file_path.is_file():
+                # Check if it's a supported file type
+                if file_path.suffix.lower() in supported_extensions or file_path.name.lower() in ['dockerfile', 'makefile', 'readme']:
+                    try:
+                        # Try to read as text
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                            # Skip very large files (>1MB)
+                            if len(content) < 1024 * 1024:
+                                relative_path = str(file_path.relative_to(folder))
+                                files[relative_path] = content
+                    except Exception:
+                        # Skip files that can't be read
+                        continue
+    except Exception as e:
+        st.error(f"Error loading files from {folder_path}: {e}")
+    
+    return files
+
+def show_file_statistics(files: dict):
+    """Show statistics about loaded files"""
+    if not files:
+        return
+    
+    # Calculate statistics
+    total_files = len(files)
+    total_size = sum(len(content) for content in files.values())
+    
+    # File type analysis
+    file_types = {}
+    for file_path in files.keys():
+        ext = Path(file_path).suffix.lower()
+        if ext:
+            file_types[ext] = file_types.get(ext, 0) + 1
+        else:
+            file_types['no extension'] = file_types.get('no extension', 0) + 1
+    
+    # Display statistics
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Total Files", total_files)
+    
+    with col2:
+        size_mb = total_size / (1024 * 1024)
+        st.metric("Total Size", f"{size_mb:.2f} MB")
+    
+    with col3:
+        st.metric("File Types", len(file_types))
+    
+    # Show file type breakdown
+    if file_types:
+        st.markdown("**File Type Breakdown:**")
+        sorted_types = sorted(file_types.items(), key=lambda x: x[1], reverse=True)
+        
+        cols = st.columns(min(4, len(sorted_types)))
+        for i, (ext, count) in enumerate(sorted_types[:8]):  # Show top 8 types
+            with cols[i % 4]:
+                st.text(f"{ext}: {count}")
+
 def get_common_project_paths():
     """Get common project folder locations"""
     common_paths = []
@@ -880,12 +1028,8 @@ def show_enhanced_folder_selection():
         st.warning("⚠️ Please select and connect to an AI model first from the sidebar.")
         return
     
-    # Enhanced folder selection interface
-    if hasattr(st.session_state.file_service, 'enhanced_folder_selection'):
-        selected_folder = st.session_state.file_service.enhanced_folder_selection()
-    else:
-        # Fallback to enhanced selection implemented here
-        selected_folder = show_enhanced_folder_selection_fallback()
+    # Use our enhanced selection implementation directly
+    selected_folder = show_enhanced_folder_selection_fallback()
     
     # Process folder if selected and different from current
     if selected_folder and selected_folder != st.session_state.current_folder:
