@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import streamlit as st
 from pathlib import Path
@@ -325,9 +326,9 @@ class EnhancedFileService:
                     r"C:\Projects",
                     r"C:\Dev",
                     r"C:\Source",
-                    r"D:\",
-                    r"E:\",
-                    r"F:\"
+                    r"D:",
+                    r"E:",
+                    r"F:"
                 ]
                 return any(path_str.startswith(pattern) for pattern in allowed_patterns)
             
