@@ -53,20 +53,124 @@ class EnhancedFileService:
         tab1, tab2, tab3, tab4 = st.tabs(["🖱️ Browse", "📝 Manual Path", "📦 ZIP Upload", "🔍 Recent Projects"])
         
         with tab1:
-            st.markdown("**Native Folder Browser**")
-            st.markdown("Click the button below to open a native folder selection dialog.")
+            st.markdown("**Web-Based Folder Browser**")
+            st.markdown("Browse and select folders using the web interface.")
+            st.info("💡 Native OS dialogs don't work in web-based Streamlit. Use this web browser instead!")
             
-            if st.button("🗂️ Open Folder Browser", type="primary", key="native_browser"):
-                try:
-                    folder_path = self._open_native_folder_dialog()
-                    if folder_path:
-                        st.success(f"✅ Selected: {folder_path}")
-                        return folder_path
+            # Initialize current browse path
+            if 'browse_path' not in st.session_state:
+                st.session_state.browse_path = os.path.expanduser("~")
+            
+            # Show current path
+            st.text(f"Current location: {st.session_state.browse_path}")
+            
+            # Navigation buttons
+            col1, col2, col3 = st.columns([1, 1, 2])
+            
+            with col1:
+                if st.button("🏠 Home", key="home_btn"):
+                    st.session_state.browse_path = os.path.expanduser("~")
+                    st.rerun()
+            
+            with col2:
+                if st.button("⬆️ Up", key="up_btn"):
+                    parent = str(Path(st.session_state.browse_path).parent)
+                    if parent != st.session_state.browse_path:  # Prevent going above root
+                        st.session_state.browse_path = parent
+                        st.rerun()
+            
+            with col3:
+                # Quick navigation to common directories
+                system = platform.system().lower()
+                if system == "windows":
+                    common_dirs = [
+                        ("📁 Documents", os.path.join(os.path.expanduser("~"), "Documents")),
+                        ("📁 Desktop", os.path.join(os.path.expanduser("~"), "Desktop")),
+                        ("📁 Downloads", os.path.join(os.path.expanduser("~"), "Downloads")),
+                        ("📁 Projects", "C:\\Projects"),
+                        ("📁 Dev", "C:\\Dev")
+                    ]
+                else:
+                    common_dirs = [
+                        ("📁 Projects", os.path.expanduser("~/Projects")),
+                        ("📁 Documents", os.path.expanduser("~/Documents")),
+                        ("📁 Desktop", os.path.expanduser("~/Desktop")),
+                        ("📁 Downloads", os.path.expanduser("~/Downloads"))
+                    ]
+                
+                for name, path in common_dirs:
+                    if Path(path).exists() and st.button(name, key=f"quick_{path}"):
+                        st.session_state.browse_path = path
+                        st.rerun()
+            
+            # List directories in current path
+            try:
+                current_path = Path(st.session_state.browse_path)
+                if current_path.exists() and current_path.is_dir():
+                    directories = []
+                    files = []
+                    
+                    for item in current_path.iterdir():
+                        if item.is_dir():
+                            directories.append(item)
+                        elif item.is_file() and item.suffix.lower() in ['.zip']:
+                            files.append(item)
+                    
+                    # Sort directories and files
+                    directories.sort(key=lambda x: x.name.lower())
+                    files.sort(key=lambda x: x.name.lower())
+                    
+                    st.markdown("**📁 Directories:**")
+                    
+                    if directories:
+                        # Create columns for directory listing
+                        cols_per_row = 3
+                        for i in range(0, len(directories), cols_per_row):
+                            cols = st.columns(cols_per_row)
+                            for j, directory in enumerate(directories[i:i+cols_per_row]):
+                                with cols[j]:
+                                    if st.button(f"📁 {directory.name}", key=f"dir_{directory}"):
+                                        st.session_state.browse_path = str(directory)
+                                        st.rerun()
                     else:
-                        st.info("No folder selected")
-                except Exception as e:
-                    st.error(f"❌ Error opening folder browser: {e}")
-                    st.info("💡 Falling back to manual path entry below")
+                        st.info("No subdirectories found")
+                    
+                    # Select current directory button
+                    st.markdown("---")
+                    col1, col2 = st.columns([1, 3])
+                    
+                    with col1:
+                        if st.button("✅ Select This Folder", type="primary", key="select_current"):
+                            if self.validate_folder_path(st.session_state.browse_path):
+                                st.success(f"✅ Selected: {st.session_state.browse_path}")
+                                return st.session_state.browse_path
+                    
+                    with col2:
+                        st.info(f"Will select: {st.session_state.browse_path}")
+                    
+                    # Show ZIP files if any
+                    if files:
+                        st.markdown("**📦 ZIP Files in this directory:**")
+                        for zip_file in files:
+                            if st.button(f"📦 Extract {zip_file.name}", key=f"zip_{zip_file}"):
+                                # Handle ZIP extraction
+                                extracted_path = self._extract_zip_file(zip_file)
+                                if extracted_path:
+                                    return extracted_path
+                
+                else:
+                    st.error(f"❌ Cannot access: {st.session_state.browse_path}")
+                    st.session_state.browse_path = os.path.expanduser("~")
+                    st.rerun()
+                    
+            except PermissionError:
+                st.error(f"❌ Permission denied: {st.session_state.browse_path}")
+                st.session_state.browse_path = os.path.expanduser("~")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Error browsing directory: {e}")
+                st.session_state.browse_path = os.path.expanduser("~")
+                st.rerun()
         
         with tab2:
             st.markdown("**Manual Path Entry**")
@@ -126,6 +230,38 @@ class EnhancedFileService:
         
         return st.session_state.current_folder
     
+    def _extract_zip_file(self, zip_file_path: Path) -> Optional[str]:
+        """Extract a ZIP file and return the extracted directory path"""
+        try:
+            # Create temporary directory
+            temp_dir = tempfile.mkdtemp(prefix=f"kiro_project_{zip_file_path.stem}_")
+            
+            with st.spinner(f"Extracting {zip_file_path.name}..."):
+                with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+                    file_list = zip_ref.namelist()
+                    
+                    # Security check
+                    for file_path in file_list:
+                        if '..' in file_path or file_path.startswith('/'):
+                            st.error("❌ Security risk detected in ZIP file")
+                            return None
+                    
+                    # Extract files
+                    zip_ref.extractall(temp_dir)
+            
+            st.success(f"✅ Extracted to: {temp_dir}")
+            
+            # If ZIP contains a single root directory, use that
+            extracted_items = list(Path(temp_dir).iterdir())
+            if len(extracted_items) == 1 and extracted_items[0].is_dir():
+                return str(extracted_items[0])
+            
+            return temp_dir
+            
+        except Exception as e:
+            st.error(f"❌ Error extracting ZIP: {e}")
+            return None
+
     def _open_native_folder_dialog(self) -> Optional[str]:
         """Open native folder selection dialog based on the operating system"""
         system = platform.system().lower()
