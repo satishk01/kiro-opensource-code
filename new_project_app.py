@@ -155,6 +155,378 @@ def show_home_page():
     else:
         st.success("🎉 **Ready to go!** You can now generate specs with coding standards, create diagrams, or integrate with JIRA.")
 
+def show_enhanced_folder_selection_fallback():
+    """Enhanced folder selection fallback implementation"""
+    st.subheader("📁 Enhanced Project Folder Selection")
+    
+    # Create tabs for different selection methods
+    tab1, tab2, tab3, tab4 = st.tabs(["🖱️ Browse", "📝 Manual Path", "📦 ZIP Upload", "🔍 Recent Projects"])
+    
+    with tab1:
+        st.markdown("**Native Folder Browser**")
+        st.markdown("Click the button below to open a native folder selection dialog.")
+        
+        if st.button("🗂️ Open Folder Browser", type="primary", key="native_browser"):
+            try:
+                folder_path = open_native_folder_dialog()
+                if folder_path:
+                    st.success(f"✅ Selected: {folder_path}")
+                    return folder_path
+                else:
+                    st.info("No folder selected")
+            except Exception as e:
+                st.error(f"❌ Error opening folder browser: {e}")
+                st.info("💡 Please use manual path entry below")
+    
+    with tab2:
+        st.markdown("**Manual Path Entry**")
+        folder_path = st.text_input(
+            "Folder Path", 
+            value=st.session_state.current_folder or "",
+            placeholder="C:\\Users\\YourName\\Projects\\MyProject or /home/user/projects/myproject",
+            help="Enter the full path to your project folder",
+            key="manual_path"
+        )
+        
+        if folder_path and folder_path != st.session_state.current_folder:
+            if validate_folder_path(folder_path):
+                return folder_path
+    
+    with tab3:
+        st.markdown("**ZIP File Upload**")
+        uploaded_file = st.file_uploader(
+            "Upload ZIP file", 
+            type=['zip'],
+            help="Upload your project as a ZIP file for analysis",
+            key="zip_upload"
+        )
+        
+        if uploaded_file:
+            extracted_path = handle_zip_upload(uploaded_file)
+            if extracted_path:
+                return extracted_path
+    
+    with tab4:
+        st.markdown("**Recent and Common Locations**")
+        
+        # Recent projects (stored in session state)
+        if 'recent_projects' not in st.session_state:
+            st.session_state.recent_projects = []
+        
+        if st.session_state.recent_projects:
+            st.markdown("**Recent Projects:**")
+            for recent_path in st.session_state.recent_projects[-5:]:  # Show last 5
+                if st.button(f"📁 {recent_path}", key=f"recent_{recent_path}"):
+                    if validate_folder_path(recent_path):
+                        return recent_path
+        
+        # Common project locations
+        st.markdown("**Common Locations:**")
+        common_paths = get_common_project_paths()
+        
+        if common_paths:
+            selected_path = st.selectbox(
+                "Select from common project locations:",
+                ["Select a folder..."] + common_paths,
+                key="common_paths"
+            )
+            
+            if selected_path != "Select a folder...":
+                return selected_path
+    
+    return st.session_state.current_folder
+
+def open_native_folder_dialog():
+    """Open native folder selection dialog"""
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        
+        # Create a root window and hide it
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes('-topmost', True)
+        
+        # Open folder dialog
+        folder_path = filedialog.askdirectory(
+            title="Select Project Folder",
+            initialdir=os.path.expanduser("~")
+        )
+        
+        root.destroy()
+        return folder_path if folder_path else None
+        
+    except ImportError:
+        st.error("❌ tkinter not available. Please use manual path entry.")
+        return None
+    except Exception as e:
+        st.error(f"❌ Error opening dialog: {e}")
+        return None
+
+def validate_folder_path(folder_path):
+    """Validate folder path"""
+    try:
+        path = Path(folder_path)
+        
+        if not path.exists():
+            st.error(f"❌ Folder does not exist: {folder_path}")
+            return False
+        
+        if not path.is_dir():
+            st.error(f"❌ Path is not a directory: {folder_path}")
+            return False
+        
+        # Check if we can read the directory
+        try:
+            list(path.iterdir())
+        except PermissionError:
+            st.error(f"❌ Permission denied: Cannot read folder {folder_path}")
+            return False
+        
+        st.success(f"✅ Valid folder: {folder_path}")
+        
+        # Add to recent projects
+        if 'recent_projects' not in st.session_state:
+            st.session_state.recent_projects = []
+        
+        if folder_path not in st.session_state.recent_projects:
+            st.session_state.recent_projects.append(folder_path)
+            # Keep only last 10 recent projects
+            st.session_state.recent_projects = st.session_state.recent_projects[-10:]
+        
+        return True
+        
+    except Exception as e:
+        st.error(f"❌ Error validating folder: {e}")
+        return False
+
+def handle_zip_upload(uploaded_file):
+    """Handle ZIP file upload and extraction"""
+    try:
+        # Create temporary directory
+        temp_dir = tempfile.mkdtemp(prefix=f"kiro_project_{uploaded_file.name.replace('.zip', '')}_")
+        
+        # Show progress for large files
+        file_size = len(uploaded_file.getvalue())
+        
+        with st.spinner(f"Extracting {uploaded_file.name} ({file_size // 1024} KB)..."):
+            # Extract ZIP file
+            with zipfile.ZipFile(uploaded_file, 'r') as zip_ref:
+                file_list = zip_ref.namelist()
+                
+                # Security check: prevent path traversal
+                for file_path in file_list:
+                    if '..' in file_path or file_path.startswith('/'):
+                        st.error("❌ Security risk detected in ZIP file")
+                        return None
+                
+                # Extract with progress
+                progress_bar = st.progress(0)
+                for i, file_info in enumerate(zip_ref.filelist):
+                    zip_ref.extract(file_info, temp_dir)
+                    progress_bar.progress((i + 1) / len(zip_ref.filelist))
+                
+                progress_bar.empty()
+        
+        st.success(f"✅ Project extracted to: {temp_dir}")
+        
+        # If ZIP contains a single root directory, use that instead
+        extracted_items = list(Path(temp_dir).iterdir())
+        if len(extracted_items) == 1 and extracted_items[0].is_dir():
+            return str(extracted_items[0])
+        
+        return temp_dir
+        
+    except zipfile.BadZipFile:
+        st.error("❌ Invalid ZIP file")
+        return None
+    except Exception as e:
+        st.error(f"❌ Error extracting ZIP file: {e}")
+        return None
+
+def get_enhanced_file_stats_fallback(files):
+    """Enhanced file statistics fallback implementation"""
+    if not files:
+        return {
+            "total_files": 0,
+            "total_size": 0,
+            "total_size_mb": 0,
+            "languages": [],
+            "language_files": {},
+            "frameworks": [],
+            "file_types": {}
+        }
+    
+    total_size = sum(len(content) for content in files.values())
+    
+    # Enhanced file type analysis
+    file_types = {}
+    language_files = {}
+    
+    for file_path in files.keys():
+        if '.' in file_path:
+            ext = Path(file_path).suffix.lower()
+            file_types[ext] = file_types.get(ext, 0) + 1
+            
+            # Map to languages
+            lang = extension_to_language(ext)
+            if lang:
+                language_files[lang] = language_files.get(lang, 0) + 1
+    
+    # Detect frameworks
+    frameworks = detect_frameworks_fallback(files)
+    
+    return {
+        "total_files": len(files),
+        "total_size": total_size,
+        "total_size_mb": round(total_size / (1024 * 1024), 2),
+        "languages": list(language_files.keys()),
+        "language_files": language_files,
+        "frameworks": frameworks,
+        "file_types": file_types
+    }
+
+def extension_to_language(ext):
+    """Map file extension to programming language"""
+    lang_map = {
+        '.py': 'Python', '.js': 'JavaScript', '.ts': 'TypeScript', '.tsx': 'TypeScript',
+        '.jsx': 'JavaScript', '.java': 'Java', '.cpp': 'C++', '.c': 'C', '.cs': 'C#',
+        '.go': 'Go', '.rs': 'Rust', '.php': 'PHP', '.rb': 'Ruby', '.swift': 'Swift',
+        '.kt': 'Kotlin', '.scala': 'Scala', '.vue': 'Vue.js', '.svelte': 'Svelte',
+        '.html': 'HTML', '.css': 'CSS', '.scss': 'SCSS', '.sass': 'Sass',
+        '.sql': 'SQL', '.json': 'JSON', '.yaml': 'YAML', '.yml': 'YAML',
+        '.xml': 'XML', '.md': 'Markdown', '.sh': 'Shell', '.bat': 'Batch'
+    }
+    
+    return lang_map.get(ext.lower())
+
+def detect_coding_standards_fallback(files):
+    """Auto-detect coding standards from project files"""
+    standards = {}
+    
+    # Check for linting configurations
+    linting_standards = []
+    if '.eslintrc.json' in files or '.eslintrc.js' in files or '.eslintrc' in files:
+        linting_standards.append("ESLint configuration detected")
+    if '.pylintrc' in files or 'pylint.cfg' in files:
+        linting_standards.append("Pylint configuration detected")
+    if '.rubocop.yml' in files:
+        linting_standards.append("RuboCop configuration detected")
+    
+    if linting_standards:
+        standards["Linting"] = linting_standards
+    
+    # Check for formatting configurations
+    formatting_standards = []
+    if '.prettierrc' in files or 'prettier.config.js' in files or '.prettierrc.json' in files:
+        formatting_standards.append("Prettier code formatting")
+    if 'pyproject.toml' in files and 'black' in files.get('pyproject.toml', ''):
+        formatting_standards.append("Black Python formatter")
+    if '.editorconfig' in files:
+        formatting_standards.append("EditorConfig for consistent formatting")
+    
+    if formatting_standards:
+        standards["Code Formatting"] = formatting_standards
+    
+    # Check for testing frameworks
+    testing_standards = []
+    if 'jest.config.js' in files or ('"jest"' in files.get('package.json', '')):
+        testing_standards.append("Jest testing framework")
+    if 'pytest.ini' in files or ('pytest' in files.get('requirements.txt', '')):
+        testing_standards.append("Pytest testing framework")
+    if 'Gemfile' in files and 'rspec' in files.get('Gemfile', ''):
+        testing_standards.append("RSpec testing framework")
+    
+    if testing_standards:
+        standards["Testing"] = testing_standards
+    
+    # Check for documentation standards
+    documentation_standards = []
+    if 'README.md' in files or 'readme.md' in files:
+        documentation_standards.append("README documentation")
+    if any('docs/' in path for path in files.keys()):
+        documentation_standards.append("Dedicated documentation directory")
+    if 'CONTRIBUTING.md' in files:
+        documentation_standards.append("Contribution guidelines")
+    
+    if documentation_standards:
+        standards["Documentation"] = documentation_standards
+    
+    return standards
+
+def detect_frameworks_fallback(files):
+    """Detect frameworks used in the project"""
+    frameworks = []
+    
+    # Simple framework detection based on key files
+    if 'package.json' in files:
+        package_content = files.get('package.json', '')
+        if 'react' in package_content.lower():
+            frameworks.append('React')
+        if 'vue' in package_content.lower():
+            frameworks.append('Vue.js')
+        if 'angular' in package_content.lower():
+            frameworks.append('Angular')
+        if 'next' in package_content.lower():
+            frameworks.append('Next.js')
+        if 'express' in package_content.lower():
+            frameworks.append('Express.js')
+    
+    if 'requirements.txt' in files:
+        req_content = files.get('requirements.txt', '')
+        if 'django' in req_content.lower():
+            frameworks.append('Django')
+        if 'flask' in req_content.lower():
+            frameworks.append('Flask')
+        if 'fastapi' in req_content.lower():
+            frameworks.append('FastAPI')
+    
+    if 'pom.xml' in files:
+        frameworks.append('Spring Boot')
+    
+    if 'Gemfile' in files:
+        frameworks.append('Ruby on Rails')
+    
+    if 'composer.json' in files:
+        frameworks.append('Laravel')
+    
+    return frameworks
+
+def get_common_project_paths():
+    """Get common project folder locations"""
+    common_paths = []
+    
+    # System-specific paths
+    if os.name == 'nt':  # Windows
+        potential_paths = [
+            os.path.expanduser("~/Documents/Projects"),
+            os.path.expanduser("~/Projects"),
+            os.path.expanduser("~/Source"),
+            os.path.expanduser("~/Desktop"),
+            "C:\\Projects",
+            "C:\\Dev"
+        ]
+    else:  # Unix-like (Linux, macOS)
+        potential_paths = [
+            os.path.expanduser("~/Projects"),
+            os.path.expanduser("~/Development"),
+            os.path.expanduser("~/Code"),
+            os.path.expanduser("~/src"),
+            os.path.expanduser("~/workspace"),
+            os.path.expanduser("~/Desktop")
+        ]
+    
+    for path in potential_paths:
+        if Path(path).exists() and Path(path).is_dir():
+            try:
+                # List subdirectories
+                subdirs = [str(p) for p in Path(path).iterdir() if p.is_dir()]
+                common_paths.extend(subdirs[:5])  # Limit to 5 per directory
+            except PermissionError:
+                continue
+    
+    return common_paths[:15]  # Limit total results
+
 def show_enhanced_folder_selection():
     st.title("📁 Enhanced Folder Selection")
     st.markdown("Select and analyze your project folder using improved selection methods.")
@@ -165,7 +537,11 @@ def show_enhanced_folder_selection():
         return
     
     # Enhanced folder selection interface
-    selected_folder = st.session_state.file_service.enhanced_folder_selection()
+    if hasattr(st.session_state.file_service, 'enhanced_folder_selection'):
+        selected_folder = st.session_state.file_service.enhanced_folder_selection()
+    else:
+        # Fallback to enhanced selection implemented here
+        selected_folder = show_enhanced_folder_selection_fallback()
     
     # Process folder if selected and different from current
     if selected_folder and selected_folder != st.session_state.current_folder:
@@ -177,7 +553,11 @@ def show_enhanced_folder_selection():
             st.session_state.loaded_files = files_content
             
             # Auto-detect coding standards
-            detected_standards = st.session_state.file_service.detect_coding_standards(files_content)
+            if hasattr(st.session_state.file_service, 'detect_coding_standards'):
+                detected_standards = st.session_state.file_service.detect_coding_standards(files_content)
+            else:
+                detected_standards = detect_coding_standards_fallback(files_content)
+            
             if detected_standards:
                 st.session_state.coding_standards.update(detected_standards)
                 st.info(f"🔍 Auto-detected {len(detected_standards)} coding standards from your project")
@@ -191,7 +571,10 @@ def show_enhanced_folder_selection():
         
         if st.session_state.loaded_files:
             # Show enhanced file statistics
-            stats = st.session_state.file_service.get_enhanced_file_stats(st.session_state.loaded_files)
+            if hasattr(st.session_state.file_service, 'get_enhanced_file_stats'):
+                stats = st.session_state.file_service.get_enhanced_file_stats(st.session_state.loaded_files)
+            else:
+                stats = get_enhanced_file_stats_fallback(st.session_state.loaded_files)
             
             col1, col2, col3, col4 = st.columns(4)
             
@@ -240,10 +623,15 @@ def show_enhanced_folder_selection():
             if st.button("🤖 Analyze Codebase with Standards", type="primary"):
                 with st.spinner("🧠 AI is analyzing your codebase with coding standards..."):
                     try:
-                        analysis = st.session_state.ai_service.analyze_codebase_with_standards(
-                            st.session_state.loaded_files, 
-                            st.session_state.coding_standards
-                        )
+                        if hasattr(st.session_state.ai_service, 'analyze_codebase_with_standards'):
+                            analysis = st.session_state.ai_service.analyze_codebase_with_standards(
+                                st.session_state.loaded_files, 
+                                st.session_state.coding_standards
+                            )
+                        else:
+                            # Fallback to regular analysis
+                            analysis = st.session_state.ai_service.analyze_codebase(st.session_state.loaded_files)
+                            analysis["standards_compliance"] = "Enhanced AI service not available. Using basic analysis."
                         
                         st.markdown("### 📊 Enhanced Analysis Results")
                         st.markdown(analysis["analysis"])
@@ -344,7 +732,11 @@ def show_coding_standards():
     with col1:
         if st.button("📥 Import from Project"):
             if st.session_state.loaded_files:
-                detected = st.session_state.file_service.detect_coding_standards(st.session_state.loaded_files)
+                if hasattr(st.session_state.file_service, 'detect_coding_standards'):
+                    detected = st.session_state.file_service.detect_coding_standards(st.session_state.loaded_files)
+                else:
+                    detected = detect_coding_standards_fallback(st.session_state.loaded_files)
+                
                 if detected:
                     st.session_state.coding_standards.update(detected)
                     st.success(f"✅ Imported {len(detected)} standards from project")
