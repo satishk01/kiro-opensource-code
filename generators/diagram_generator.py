@@ -298,6 +298,7 @@ Focus on:
         except Exception as e:
             return self._generate_fallback_sequence_diagram(interactions)
     
+    # Helper methods for file extraction
     def _extract_model_files(self, codebase: Dict) -> Dict:
         """Extract files that likely contain data models"""
         model_files = {}
@@ -379,6 +380,7 @@ Focus on:
         ]
         return any(re.search(pattern, content, re.IGNORECASE) for pattern in patterns)
     
+    # Enhanced Mermaid validation and cleaning methods
     def _clean_mermaid_code(self, raw_code: str, diagram_type: str) -> str:
         """Clean and validate Mermaid diagram code for consistency"""
         if not raw_code or not raw_code.strip():
@@ -526,219 +528,7 @@ Focus on:
         }
         return fallbacks.get(diagram_type, f"{diagram_type}\n    A --> B")
     
-    def _generate_fallback_er_diagram(self, model_files: Dict) -> str:
-        """Generate a basic ER diagram when AI generation fails"""
-        if not model_files:
-            return """erDiagram
-    ENTITY {
-        id int PK
-        name string
-        created_at datetime
-    }"""
-        
-        entities = []
-        for file_path in model_files.keys():
-            # Extract potential entity names from file paths
-            entity_name = file_path.split('/')[-1].split('.')[0].upper()
-            entities.append(f"""    {entity_name} {{
-        id int PK
-        name string
-        created_at datetime
-    }}""")
-        
-        return f"erDiagram\n" + '\n'.join(entities)
-    
-    def _generate_fallback_flow_diagram(self, api_files: Dict, service_files: Dict) -> str:
-        """Generate a basic flow diagram when AI generation fails"""
-        return """flowchart TD
-    A[Client Request] --> B[API Layer]
-    B --> C[Service Layer]
-    C --> D[Data Layer]
-    D --> E[Database]
-    C --> F[External APIs]
-    B --> G[Response]"""
-    
-    def _generate_fallback_architecture_diagram(self, codebase: Dict) -> str:
-        """Generate a basic architecture diagram when AI generation fails"""
-        return """graph TB
-    subgraph "Presentation Layer"
-        UI[User Interface]
-        API[API Endpoints]
-    end
-    
-    subgraph "Business Layer"
-        SVC[Services]
-        BL[Business Logic]
-    end
-    
-    subgraph "Data Layer"
-        DB[Database]
-        EXT[External APIs]
-    end
-    
-    UI --> API
-    API --> SVC
-    SVC --> BL
-    BL --> DB
-    BL --> EXT"""
-    
-    def _generate_fallback_class_diagram(self, class_files: Dict) -> str:
-        """Generate a basic class diagram when AI generation fails"""
-        return """classDiagram
-    class BaseClass {
-        +id: int
-        +created_at: datetime
-        +save()
-        +delete()
-    }
-    
-    class DerivedClass {
-        +name: string
-        +process()
-    }
-    
-    BaseClass <|-- DerivedClass"""
-    
-    def _ai_extract_aws_components(self, codebase: Dict) -> List[str]:
-        """Use AI to extract AWS components from codebase"""
-        system_prompt = """You are OpenFlux, an AI assistant specialized in AWS architecture analysis.
-        
-        Analyze the provided codebase and identify AWS services and components that are used or referenced.
-        Return a JSON list of AWS service names found in the code.
-        
-        Look for:
-        - AWS SDK calls
-        - Infrastructure as Code (CloudFormation, Terraform)
-        - Configuration files mentioning AWS services
-        - Import statements for AWS libraries
-        - Environment variables with AWS service names
-        
-        Return ONLY a JSON array of service names, like: ["EC2", "S3", "RDS", "Lambda"]"""
-        
-        prompt = f"""Identify AWS services in this codebase:
-
-{json.dumps(codebase, indent=2)[:4000]}...
-
-Return only the JSON array of AWS service names."""
-        
-        try:
-            response = self.ai_service.generate_text(prompt, system_prompt)
-            # Try to parse JSON response
-            import json
-            components = json.loads(response.strip())
-            return components if isinstance(components, list) else []
-        except:
-            # Fallback to common AWS services
-            return ["EC2", "S3", "RDS", "Lambda", "API Gateway"]
-    
-    def _ai_extract_aws_components_from_spec(self, spec_content: Dict) -> List[str]:
-        """Use AI to extract AWS components from specification content"""
-        system_prompt = """You are OpenFlux, an AI assistant specialized in AWS architecture analysis.
-        
-        Analyze the provided specification content (requirements, design, tasks) and identify AWS services and components that should be used based on the requirements and design.
-        Return a JSON list of AWS service names that would be appropriate for this system.
-        
-        Look for:
-        - Infrastructure requirements mentioned in the spec
-        - Scalability and performance requirements
-        - Storage and database needs
-        - API and web service requirements
-        - Security and compliance needs
-        - Integration requirements
-        
-        Return ONLY a JSON array of service names, like: ["EC2", "S3", "RDS", "Lambda", "API Gateway"]"""
-        
-        prompt = f"""Identify appropriate AWS services for this specification:
-
-Specification content:
-{json.dumps(spec_content, indent=2)}
-
-Based on the requirements and design, suggest AWS services that would be needed.
-Return only the JSON array of AWS service names."""
-        
-        try:
-            response = self.ai_service.generate_text(prompt, system_prompt)
-            # Try to parse JSON response
-            import json
-            components = json.loads(response.strip())
-            return components if isinstance(components, list) else []
-        except:
-            # Fallback based on common web application patterns
-            return ["EC2", "RDS", "S3", "API Gateway", "Lambda", "CloudFront"]
-    
-    def _ai_extract_aws_connections(self, codebase: Dict, components: List[str]) -> List[Dict]:
-        """Use AI to extract connections between AWS components"""
-        if not components:
-            return []
-        
-        system_prompt = """You are OpenFlux, an AI assistant specialized in AWS architecture analysis.
-        
-        Given a list of AWS components and codebase, identify likely connections between these components.
-        Return a JSON array of connection objects with 'from', 'to', 'type', and 'description' fields.
-        
-        Example format:
-        [
-            {"from": "API Gateway", "to": "Lambda", "type": "triggers", "description": "API calls trigger Lambda functions"},
-            {"from": "Lambda", "to": "RDS", "type": "queries", "description": "Lambda functions query database"}
-        ]"""
-        
-        prompt = f"""Identify connections between these AWS components: {components}
-
-Based on this codebase:
-{json.dumps(codebase, indent=2)[:3000]}...
-
-Return only the JSON array of connection objects."""
-        
-        try:
-            response = self.ai_service.generate_text(prompt, system_prompt)
-            connections = json.loads(response.strip())
-            return connections if isinstance(connections, list) else []
-        except:
-            # Generate basic connections
-            connections = []
-            for i, comp1 in enumerate(components):
-                for comp2 in components[i+1:]:
-                    connections.append({
-                        "from": comp1,
-                        "to": comp2,
-                        "type": "connects",
-                        "description": f"{comp1} connects to {comp2}"
-                    })
-            return connections[:5]  # Limit to 5 connections
-    
-    def _extract_interactions_from_codebase(self, codebase: Dict) -> List[Dict]:
-        """Extract interaction patterns from codebase for sequence diagrams"""
-        interactions = []
-        
-        # Look for API endpoints and their handlers
-        for file_path, content in codebase.items():
-            # Find API route definitions
-            api_patterns = [
-                r'@app\.route\([\'"]([^\'"]+)[\'"]',
-                r'@api\.route\([\'"]([^\'"]+)[\'"]',
-                r'app\.(get|post|put|delete)\([\'"]([^\'"]+)[\'"]',
-                r'router\.(get|post|put|delete)\([\'"]([^\'"]+)[\'"]'
-            ]
-            
-            for pattern in api_patterns:
-                matches = re.findall(pattern, content, re.IGNORECASE)
-                for match in matches:
-                    if isinstance(match, tuple):
-                        method = match[0] if len(match) > 1 else "request"
-                        endpoint = match[1] if len(match) > 1 else match[0]
-                    else:
-                        method = "request"
-                        endpoint = match
-                    
-                    interactions.append({
-                        "from": "Client",
-                        "to": "API",
-                        "message": f"{method.upper()} {endpoint}",
-                        "file": file_path
-                    })
-        
-        return interactions
-    
+    # AWS-specific methods
     def _generate_basic_aws_architecture(self, codebase: Dict, is_spec_content: bool = False) -> str:
         """Generate basic AWS architecture diagram using AI"""
         if is_spec_content:
@@ -782,76 +572,6 @@ Create a simple, clean AWS architecture showing:
             return self._clean_mermaid_code(diagram_code, "graph")
         except Exception as e:
             return self._generate_fallback_aws_architecture(codebase, is_spec_content)
-    
-    def _generate_fallback_aws_architecture(self, codebase: Dict, is_spec_content: bool = False) -> str:
-        """Generate fallback AWS architecture diagram"""
-        if is_spec_content:
-            return """graph TB
-    subgraph "AWS Cloud Architecture"
-        subgraph "Frontend Layer"
-            CF[CloudFront CDN]
-            S3Web[S3 Static Website]
-        end
-        
-        subgraph "API Layer"
-            ALB[Application Load Balancer]
-            API[API Gateway]
-            Lambda[Lambda Functions]
-        end
-        
-        subgraph "Application Layer"
-            EC2[EC2 Instances]
-            ECS[ECS Containers]
-        end
-        
-        subgraph "Data Layer"
-            RDS[RDS Database]
-            S3[S3 Storage]
-            Cache[ElastiCache]
-        end
-        
-        subgraph "Security & Monitoring"
-            IAM[IAM Roles]
-            CW[CloudWatch]
-        end
-    end
-    
-    Users[End Users] --> CF
-    CF --> S3Web
-    Users --> ALB
-    ALB --> EC2
-    Users --> API
-    API --> Lambda
-    Lambda --> RDS
-    EC2 --> RDS
-    Lambda --> S3
-    EC2 --> S3
-    EC2 --> Cache"""
-        else:
-            return """graph TB
-    subgraph "AWS Cloud"
-        subgraph "Compute"
-            EC2[EC2 Instances]
-            Lambda[Lambda Functions]
-        end
-        
-        subgraph "Storage"
-            S3[S3 Buckets]
-            RDS[RDS Database]
-        end
-        
-        subgraph "Networking"
-            ALB[Application Load Balancer]
-            API[API Gateway]
-        end
-    end
-    
-    User[Users] --> ALB
-    ALB --> EC2
-    API --> Lambda
-    Lambda --> RDS
-    EC2 --> S3
-    Lambda --> S3"""
     
     def _generate_enhanced_fallback_aws_architecture(self, codebase: Dict, is_spec_content: bool = False) -> str:
         """Generate enhanced fallback AWS architecture diagram with draw.io-style AWS icons"""
@@ -1045,135 +765,314 @@ Create a simple, clean AWS architecture showing:
     class R53,CF,ALB,APIGW awsNetwork
     class IAM,CloudWatch,VPC awsSecurity
     class SQS,SNS awsIntegration"""
-        end
+    
+    # AI extraction methods for AWS components
+    def _ai_extract_aws_components(self, codebase: Dict) -> List[str]:
+        """Use AI to extract AWS components from codebase"""
+        system_prompt = """You are OpenFlux, an AI assistant specialized in AWS architecture analysis.
         
-        subgraph "Frontend Hosting"
-            S3Web[S3 Static Website]
-            S3Assets[S3 Assets Bucket]
-        end
+        Analyze the provided codebase and identify AWS services and components that are used or referenced.
+        Return a JSON list of AWS service names found in the code.
         
-        subgraph "Load Balancing & API"
-            ALB[Application Load Balancer]
-            NLB[Network Load Balancer]
-            APIGW[API Gateway]
-            APIGW2[API Gateway v2]
-        end
+        Look for:
+        - AWS SDK calls
+        - Infrastructure as Code (CloudFormation, Terraform)
+        - Configuration files mentioning AWS services
+        - Import statements for AWS libraries
+        - Environment variables with AWS service names
         
-        subgraph "Compute Services"
-            EC2[EC2 Auto Scaling Group]
-            Lambda[Lambda Functions]
-            ECS[ECS Fargate]
-            EKS[EKS Cluster]
-        end
+        Return ONLY a JSON array of service names, like: ["EC2", "S3", "RDS", "Lambda"]"""
         
-        subgraph "Database & Storage"
-            RDS[RDS Multi-AZ]
-            Aurora[Aurora Serverless]
-            DynamoDB[DynamoDB Tables]
-            S3Data[S3 Data Lake]
-            EFS[EFS File System]
-        end
+        prompt = f"""Identify AWS services in this codebase:
+
+{json.dumps(codebase, indent=2)[:4000]}...
+
+Return only the JSON array of AWS service names."""
         
-        subgraph "Caching & Performance"
-            ElastiCache[ElastiCache Redis]
-            DAX[DynamoDB Accelerator]
-        end
+        try:
+            response = self.ai_service.generate_text(prompt, system_prompt)
+            # Try to parse JSON response
+            import json
+            components = json.loads(response.strip())
+            return components if isinstance(components, list) else []
+        except:
+            # Fallback to common AWS services
+            return ["EC2", "S3", "RDS", "Lambda", "API Gateway"]
+    
+    def _ai_extract_aws_components_from_spec(self, spec_content: Dict) -> List[str]:
+        """Use AI to extract AWS components from specification content"""
+        system_prompt = """You are OpenFlux, an AI assistant specialized in AWS architecture analysis.
         
-        subgraph "Security & Identity"
-            IAM[IAM Roles & Policies]
-            Cognito[Cognito User Pools]
-            SecretsManager[Secrets Manager]
-            KMS[AWS KMS]
-        end
+        Analyze the provided specification content (requirements, design, tasks) and identify AWS services and components that should be used based on the requirements and design.
+        Return a JSON list of AWS service names that would be appropriate for this system.
         
-        subgraph "Monitoring & Logging"
-            CloudWatch[CloudWatch Metrics]
-            CloudTrail[CloudTrail Logs]
-            XRay[X-Ray Tracing]
-        end
+        Look for:
+        - Infrastructure requirements mentioned in the spec
+        - Scalability and performance requirements
+        - Storage and database needs
+        - API and web service requirements
+        - Security and compliance needs
+        - Integration requirements
         
-        subgraph "Integration & Messaging"
-            SQS[SQS Queues]
-            SNS[SNS Topics]
-            EventBridge[EventBridge]
-        end
+        Return ONLY a JSON array of service names, like: ["EC2", "S3", "RDS", "Lambda", "API Gateway"]"""
+        
+        prompt = f"""Identify appropriate AWS services for this specification:
+
+Specification content:
+{json.dumps(spec_content, indent=2)}
+
+Based on the requirements and design, suggest AWS services that would be needed.
+Return only the JSON array of AWS service names."""
+        
+        try:
+            response = self.ai_service.generate_text(prompt, system_prompt)
+            # Try to parse JSON response
+            import json
+            components = json.loads(response.strip())
+            return components if isinstance(components, list) else []
+        except:
+            # Fallback based on common web application patterns
+            return ["EC2", "RDS", "S3", "API Gateway", "Lambda", "CloudFront"]
+    
+    def _ai_extract_aws_connections(self, codebase: Dict, components: List[str]) -> List[Dict]:
+        """Use AI to extract connections between AWS components"""
+        if not components:
+            return []
+        
+        system_prompt = """You are OpenFlux, an AI assistant specialized in AWS architecture analysis.
+        
+        Given a list of AWS components and codebase, identify likely connections between these components.
+        Return a JSON array of connection objects with 'from', 'to', 'type', and 'description' fields.
+        
+        Example format:
+        [
+            {"from": "API Gateway", "to": "Lambda", "type": "triggers", "description": "API calls trigger Lambda functions"},
+            {"from": "Lambda", "to": "RDS", "type": "queries", "description": "Lambda functions query database"}
+        ]"""
+        
+        prompt = f"""Identify connections between these AWS components: {components}
+
+Based on this codebase:
+{json.dumps(codebase, indent=2)[:3000]}...
+
+Return only the JSON array of connection objects."""
+        
+        try:
+            response = self.ai_service.generate_text(prompt, system_prompt)
+            connections = json.loads(response.strip())
+            return connections if isinstance(connections, list) else []
+        except:
+            # Generate basic connections
+            connections = []
+            for i, comp1 in enumerate(components):
+                for comp2 in components[i+1:]:
+                    connections.append({
+                        "from": comp1,
+                        "to": comp2,
+                        "type": "connects",
+                        "description": f"{comp1} connects to {comp2}"
+                    })
+            return connections[:5]  # Limit to 5 connections
+    
+    def _extract_interactions_from_codebase(self, codebase: Dict) -> List[Dict]:
+        """Extract interaction patterns from codebase for sequence diagrams"""
+        interactions = []
+        
+        # Look for API endpoints and their handlers
+        for file_path, content in codebase.items():
+            # Find API route definitions
+            api_patterns = [
+                r'@app\.route\([\'"]([^\'"]+)[\'"]',
+                r'@api\.route\([\'"]([^\'"]+)[\'"]',
+                r'app\.(get|post|put|delete)\([\'"]([^\'"]+)[\'"]',
+                r'router\.(get|post|put|delete)\([\'"]([^\'"]+)[\'"]'
+            ]
+            
+            for pattern in api_patterns:
+                matches = re.findall(pattern, content, re.IGNORECASE)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        method = match[0] if len(match) > 1 else "request"
+                        endpoint = match[1] if len(match) > 1 else match[0]
+                    else:
+                        method = "request"
+                        endpoint = match
+                    
+                    interactions.append({
+                        "from": "Client",
+                        "to": "API",
+                        "message": f"{method.upper()} {endpoint}",
+                        "file": file_path
+                    })
+        
+        return interactions
+    
+    # Fallback diagram generators
+    def _generate_fallback_er_diagram(self, model_files: Dict) -> str:
+        """Generate a basic ER diagram when AI generation fails"""
+        if not model_files:
+            return """erDiagram
+    ENTITY {
+        id int PK
+        name string
+        created_at datetime
+    }"""
+        
+        entities = []
+        for file_path in model_files.keys():
+            # Extract potential entity names from file paths
+            entity_name = file_path.split('/')[-1].split('.')[0].upper()
+            entities.append(f"""    {entity_name} {{
+        id int PK
+        name string
+        created_at datetime
+    }}""")
+        
+        return f"erDiagram\n" + '\n'.join(entities)
+    
+    def _generate_fallback_flow_diagram(self, api_files: Dict, service_files: Dict) -> str:
+        """Generate a basic flow diagram when AI generation fails"""
+        return """flowchart TD
+    A[Client Request] --> B[API Layer]
+    B --> C[Service Layer]
+    C --> D[Data Layer]
+    D --> E[Database]
+    C --> F[External APIs]
+    B --> G[Response]"""
+    
+    def _generate_fallback_architecture_diagram(self, codebase: Dict) -> str:
+        """Generate a basic architecture diagram when AI generation fails"""
+        return """graph TB
+    subgraph "Presentation Layer"
+        UI[User Interface]
+        API[API Endpoints]
     end
     
-    Users[End Users] --> R53
-    R53 --> CF
-    CF --> WAF
-    WAF --> S3Web
-    CF --> ALB
-    ALB --> EC2
-    ALB --> ECS
-    APIGW --> Lambda
-    Lambda --> RDS
-    Lambda --> DynamoDB
-    EC2 --> ElastiCache
-    Lambda --> S3Data
-    EC2 --> Aurora
-    Lambda --> SQS
-    SQS --> SNS"""
-        else:
+    subgraph "Business Layer"
+        SVC[Services]
+        BL[Business Logic]
+    end
+    
+    subgraph "Data Layer"
+        DB[Database]
+        EXT[External APIs]
+    end
+    
+    UI --> API
+    API --> SVC
+    SVC --> BL
+    BL --> DB
+    BL --> EXT"""
+    
+    def _generate_fallback_class_diagram(self, class_files: Dict) -> str:
+        """Generate a basic class diagram when AI generation fails"""
+        return """classDiagram
+    class BaseClass {
+        +id: int
+        +created_at: datetime
+        +save()
+        +delete()
+    }
+    
+    class DerivedClass {
+        +name: string
+        +process()
+    }
+    
+    BaseClass <|-- DerivedClass"""
+    
+    def _generate_fallback_aws_architecture(self, codebase: Dict, is_spec_content: bool = False) -> str:
+        """Generate fallback AWS architecture diagram"""
+        if is_spec_content:
             return """graph TB
-    subgraph "AWS Cloud - Enhanced Architecture"
-        subgraph "Frontend & CDN"
-            CF[CloudFront]
-            S3Web[S3 Website]
-            R53[Route 53]
+    subgraph "AWS Cloud Architecture"
+        subgraph "Frontend Layer"
+            CF[CloudFront CDN]
+            S3Web[S3 Static Website]
         end
         
-        subgraph "Application Tier"
+        subgraph "API Layer"
             ALB[Application Load Balancer]
-            EC2ASG[EC2 Auto Scaling]
+            API[API Gateway]
             Lambda[Lambda Functions]
-            APIGW[API Gateway]
         end
         
-        subgraph "Data & Storage"
+        subgraph "Application Layer"
+            EC2[EC2 Instances]
+            ECS[ECS Containers]
+        end
+        
+        subgraph "Data Layer"
             RDS[RDS Database]
-            DynamoDB[DynamoDB]
-            S3[S3 Buckets]
-            ElastiCache[ElastiCache]
+            S3[S3 Storage]
+            Cache[ElastiCache]
         end
         
         subgraph "Security & Monitoring"
-            IAM[IAM]
-            CloudWatch[CloudWatch]
-            VPC[VPC & Subnets]
-        end
-        
-        subgraph "Integration"
-            SQS[SQS]
-            SNS[SNS]
+            IAM[IAM Roles]
+            CW[CloudWatch]
         end
     end
     
-    Users --> R53
-    R53 --> CF
+    Users[End Users] --> CF
     CF --> S3Web
     Users --> ALB
-    ALB --> EC2ASG
-    APIGW --> Lambda
+    ALB --> EC2
+    Users --> API
+    API --> Lambda
     Lambda --> RDS
-    Lambda --> DynamoDB
-    EC2ASG --> RDS
+    EC2 --> RDS
     Lambda --> S3
-    EC2ASG --> ElastiCache
-    Lambda --> SQS
-    SQS --> SNS"""
+    EC2 --> S3
+    EC2 --> Cache"""
+        else:
+            return """graph TB
+    subgraph "AWS Cloud"
+        subgraph "Compute"
+            EC2[EC2 Instances]
+            Lambda[Lambda Functions]
+        end
+        
+        subgraph "Storage"
+            S3[S3 Buckets]
+            RDS[RDS Database]
+        end
+        
+        subgraph "Networking"
+            ALB[Application Load Balancer]
+            API[API Gateway]
+        end
+    end
+    
+    User[Users] --> ALB
+    ALB --> EC2
+    API --> Lambda
+    Lambda --> RDS
+    EC2 --> S3
+    Lambda --> S3"""
     
     def _generate_fallback_sequence_diagram(self, interactions: List[Dict]) -> str:
         """Generate fallback sequence diagram"""
-        return """sequenceDiagram
-    participant User
-    participant API
-    participant Service
-    participant Database
-    
-    User->>+API: HTTP Request
-    API->>+Service: Process Request
-    Service->>+Database: Query Data
-    Database-->>-Service: Return Data
-    Service-->>-API: Process Response
-    API-->>-User: HTTP Response"""
+        if interactions:
+            diagram = "sequenceDiagram\n"
+            participants = set()
+            
+            # Extract participants
+            for interaction in interactions:
+                participants.add(interaction.get("from", "User"))
+                participants.add(interaction.get("to", "System"))
+            
+            # Add participants
+            for participant in participants:
+                diagram += f"    participant {participant}\n"
+            
+            # Add interactions
+            for interaction in interactions:
+                from_actor = interaction.get("from", "User")
+                to_actor = interaction.get("to", "System")
+                message = interaction.get("message", "Request")
+                diagram += f"    {from_actor}->>+{to_actor}: {message}\n"
+            
+            return diagram
+        else:
+            return "sequenceDiagram\n    participant User\n    participant API\n    participant Service\n    participant Database\n    User->>+API: HTTP Request\n    API->>+Service: Process Request\n    Service->>+Database: Query Data\n    Database-->>-Service: Return Data\n    Service-->>-API: Process Response\n    API-->>-User: HTTP Response"
