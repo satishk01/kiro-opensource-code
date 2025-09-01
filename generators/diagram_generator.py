@@ -380,25 +380,151 @@ Focus on:
         return any(re.search(pattern, content, re.IGNORECASE) for pattern in patterns)
     
     def _clean_mermaid_code(self, raw_code: str, diagram_type: str) -> str:
-        """Clean and validate Mermaid diagram code"""
-        # Remove markdown code blocks if present
+        """Clean and validate Mermaid diagram code for consistency"""
+        if not raw_code or not raw_code.strip():
+            return f"{diagram_type}\n    %% No content generated"
+        
+        # Remove any markdown code blocks
         cleaned = re.sub(r'```mermaid\n?', '', raw_code)
         cleaned = re.sub(r'```\n?', '', cleaned)
         
-        # Ensure diagram starts with correct type
-        if not cleaned.strip().startswith(diagram_type):
-            cleaned = f"{diagram_type}\n{cleaned}"
+        # Split into lines for processing
+        lines = cleaned.strip().split('\n')
+        cleaned_lines = []
         
-        # Basic validation and cleanup
-        lines = cleaned.split('\n')
-        valid_lines = []
+        # Ensure it starts with the correct diagram type
+        if not lines[0].strip().startswith(diagram_type):
+            cleaned_lines.append(diagram_type)
+        
+        # Process each line
+        for line in lines:
+            line = line.strip()
+            if line:
+                # Fix common Mermaid syntax issues
+                line = self._fix_mermaid_syntax(line)
+                cleaned_lines.append(line)
+        
+        # Validate the final diagram
+        result = '\n'.join(cleaned_lines)
+        return self._validate_mermaid_diagram(result, diagram_type)
+    
+    def _fix_mermaid_syntax(self, line: str) -> str:
+        """Fix common Mermaid syntax issues"""
+        # Fix node ID issues - ensure IDs are valid
+        line = re.sub(r'[^\w\-\[\](){}":;,\s<>|&%/\\.]', '', line)
+        
+        # Fix arrow syntax
+        line = re.sub(r'-->', '-->', line)  # Ensure consistent arrow syntax
+        line = re.sub(r'->', '-->', line)   # Convert single arrows to double
+        
+        # Fix subgraph syntax
+        if line.strip().startswith('subgraph'):
+            # Ensure subgraph has proper quotes if needed
+            if '"' not in line and '[' not in line and len(line.split()) > 1:
+                parts = line.split(' ', 1)
+                if len(parts) > 1:
+                    line = f'{parts[0]} "{parts[1]}"'
+        
+        # Fix node definitions with special characters
+        if '[' in line and ']' in line:
+            # Ensure node labels are properly formatted
+            line = re.sub(r'\[([^]]*)\]', lambda m: f'[{m.group(1)}]', line)
+        
+        return line
+    
+    def _validate_mermaid_diagram(self, diagram: str, diagram_type: str) -> str:
+        """Validate and fix Mermaid diagram structure"""
+        lines = diagram.split('\n')
+        validated_lines = []
+        
+        # Track if we have the diagram type declaration
+        has_diagram_type = False
         
         for line in lines:
             line = line.strip()
-            if line and not line.startswith('#'):  # Remove comments
-                valid_lines.append(line)
+            if not line:
+                continue
+            
+            # Check for diagram type
+            if line.startswith(diagram_type):
+                has_diagram_type = True
+                validated_lines.append(line)
+                continue
+            
+            # Skip invalid lines that might break rendering
+            if self._is_valid_mermaid_line(line):
+                validated_lines.append(line)
         
-        return '\n'.join(valid_lines)
+        # Ensure we have diagram type
+        if not has_diagram_type:
+            validated_lines.insert(0, diagram_type)
+        
+        # Add fallback content if diagram is too minimal
+        if len(validated_lines) < 3:
+            return self._generate_minimal_fallback(diagram_type)
+        
+        return '\n'.join(validated_lines)
+    
+    def _is_valid_mermaid_line(self, line: str) -> bool:
+        """Check if a line is valid Mermaid syntax"""
+        if not line.strip():
+            return False
+        
+        # Allow comments
+        if line.strip().startswith('%%'):
+            return True
+        
+        # Allow subgraphs
+        if line.strip().startswith('subgraph'):
+            return True
+        
+        # Allow end statements
+        if line.strip() == 'end':
+            return True
+        
+        # Allow classDef statements
+        if line.strip().startswith('classDef'):
+            return True
+        
+        # Allow class assignments
+        if line.strip().startswith('class '):
+            return True
+        
+        # Allow node definitions and connections
+        valid_patterns = [
+            r'^\s*\w+\[.*\]',  # Node definitions
+            r'^\s*\w+\s*-->\s*\w+',  # Connections
+            r'^\s*\w+\s*->>.*\w+',  # Sequence diagram arrows
+            r'^\s*participant\s+\w+',  # Sequence participants
+            r'^\s*class\s+\w+',  # Class definitions
+            r'^\s*\w+\s*:\s*.*',  # ER diagram attributes
+        ]
+        
+        return any(re.match(pattern, line) for pattern in valid_patterns)
+    
+    def _generate_minimal_fallback(self, diagram_type: str) -> str:
+        """Generate minimal fallback diagram"""
+        fallbacks = {
+            'graph': """graph TB
+    A[Start] --> B[Process]
+    B --> C[End]""",
+            'sequenceDiagram': """sequenceDiagram
+    participant User
+    participant System
+    User->>System: Request
+    System-->>User: Response""",
+            'erDiagram': """erDiagram
+    USER {
+        int id
+        string name
+    }""",
+            'classDiagram': """classDiagram
+    class User {
+        +String name
+        +getId()
+    }"""
+        }
+        return fallbacks.get(diagram_type, f"{diagram_type}\n    A --> B")
     
     def _generate_fallback_er_diagram(self, model_files: Dict) -> str:
         """Generate a basic ER diagram when AI generation fails"""
@@ -728,14 +854,197 @@ Create a simple, clean AWS architecture showing:
     Lambda --> S3"""
     
     def _generate_enhanced_fallback_aws_architecture(self, codebase: Dict, is_spec_content: bool = False) -> str:
-        """Generate enhanced fallback AWS architecture diagram with detailed components"""
+        """Generate enhanced fallback AWS architecture diagram with draw.io-style AWS icons"""
+        return self._generate_aws_diagram_with_drawio_icons(is_spec_content)
+    
+    def _generate_aws_diagram_with_drawio_icons(self, is_spec_content: bool = False) -> str:
+        """Generate AWS architecture diagram with draw.io-style icons and proper styling"""
         if is_spec_content:
             return """graph TB
-    subgraph "AWS Cloud - Enhanced Architecture"
-        subgraph "Edge & CDN"
-            CF[CloudFront Distribution]
-            R53[Route 53 DNS]
-            WAF[AWS WAF]
+    %% AWS Architecture with Draw.io Style Icons - From Specification
+    subgraph "aws-cloud" ["☁️ AWS Cloud Infrastructure"]
+        subgraph "edge-layer" ["🌐 Edge & Content Delivery"]
+            R53["🌍 Route 53<br/>DNS Management"]
+            CF["📡 CloudFront<br/>Global CDN"]
+            WAF["🛡️ AWS WAF<br/>Web Application Firewall"]
+        end
+        
+        subgraph "frontend-layer" ["🖥️ Frontend & Static Assets"]
+            S3Web["📁 S3 Bucket<br/>Static Website Hosting"]
+            S3Assets["📦 S3 Bucket<br/>Static Assets"]
+        end
+        
+        subgraph "api-layer" ["🔌 API & Load Balancing"]
+            ALB["⚖️ Application<br/>Load Balancer"]
+            APIGW["🚪 API Gateway<br/>REST/HTTP API"]
+            APIGW2["🔗 API Gateway<br/>WebSocket API"]
+        end
+        
+        subgraph "compute-layer" ["💻 Compute Services"]
+            EC2["🖥️ EC2<br/>Auto Scaling Group"]
+            Lambda["⚡ Lambda<br/>Serverless Functions"]
+            ECS["🐳 ECS Fargate<br/>Containerized Apps"]
+            EKS["☸️ EKS<br/>Kubernetes Cluster"]
+        end
+        
+        subgraph "data-layer" ["💾 Data & Storage"]
+            RDS["🗄️ RDS<br/>Relational Database"]
+            Aurora["🌟 Aurora<br/>Serverless Database"]
+            DynamoDB["⚡ DynamoDB<br/>NoSQL Database"]
+            S3Data["🏗️ S3 Bucket<br/>Data Lake Storage"]
+            EFS["📂 EFS<br/>Elastic File System"]
+        end
+        
+        subgraph "cache-layer" ["🚀 Caching & Performance"]
+            ElastiCache["🚀 ElastiCache<br/>Redis/Memcached"]
+            DAX["⚡ DynamoDB<br/>Accelerator (DAX)"]
+        end
+        
+        subgraph "security-layer" ["🔐 Security & Identity"]
+            IAM["👤 IAM<br/>Identity & Access Management"]
+            Cognito["🔑 Cognito<br/>User Authentication"]
+            SecretsManager["🔒 Secrets Manager<br/>Credential Storage"]
+            KMS["🔐 AWS KMS<br/>Key Management Service"]
+        end
+        
+        subgraph "monitoring-layer" ["📊 Monitoring & Observability"]
+            CloudWatch["📈 CloudWatch<br/>Metrics & Logs"]
+            CloudTrail["🔍 CloudTrail<br/>API Audit Logging"]
+            XRay["🔬 X-Ray<br/>Distributed Tracing"]
+        end
+        
+        subgraph "integration-layer" ["🔗 Integration & Messaging"]
+            SQS["📬 SQS<br/>Message Queues"]
+            SNS["📢 SNS<br/>Push Notifications"]
+            EventBridge["🌉 EventBridge<br/>Event-Driven Architecture"]
+        end
+    end
+    
+    %% External Users and Connections
+    Users["👥 End Users"]
+    
+    %% Primary User Flow
+    Users --> R53
+    R53 --> CF
+    CF --> WAF
+    WAF --> S3Web
+    CF --> ALB
+    
+    %% API and Compute Flows
+    ALB --> EC2
+    ALB --> ECS
+    APIGW --> Lambda
+    APIGW2 --> Lambda
+    
+    %% Data Access Patterns
+    Lambda --> RDS
+    Lambda --> Aurora
+    Lambda --> DynamoDB
+    EC2 --> RDS
+    ECS --> Aurora
+    
+    %% Caching Patterns
+    Lambda --> ElastiCache
+    EC2 --> ElastiCache
+    DynamoDB --> DAX
+    
+    %% Storage Patterns
+    Lambda --> S3Data
+    EC2 --> S3Assets
+    ECS --> EFS
+    
+    %% Messaging Patterns
+    Lambda --> SQS
+    SQS --> SNS
+    Lambda --> EventBridge
+    
+    %% AWS Official Color Styling
+    classDef awsCompute fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsStorage fill:#3F48CC,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsDatabase fill:#C925D1,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsNetwork fill:#FF4B4B,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsSecurity fill:#DD344C,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsMonitoring fill:#759C3E,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsIntegration fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsAnalytics fill:#8C4FFF,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    
+    %% Apply Styling to Services
+    class EC2,Lambda,ECS,EKS awsCompute
+    class S3Web,S3Assets,S3Data,EFS awsStorage
+    class RDS,Aurora,DynamoDB,ElastiCache,DAX awsDatabase
+    class R53,CF,ALB,APIGW,APIGW2,WAF awsNetwork
+    class IAM,Cognito,SecretsManager,KMS awsSecurity
+    class CloudWatch,CloudTrail,XRay awsMonitoring
+    class SQS,SNS,EventBridge awsIntegration"""
+        else:
+            return """graph TB
+    %% AWS Architecture with Draw.io Style Icons - From Codebase
+    subgraph "aws-cloud" ["☁️ AWS Cloud Infrastructure"]
+        subgraph "frontend-tier" ["🌐 Frontend & CDN"]
+            R53["🌍 Route 53<br/>DNS Service"]
+            CF["📡 CloudFront<br/>Content Delivery Network"]
+            S3Web["📁 S3 Bucket<br/>Static Website"]
+        end
+        
+        subgraph "application-tier" ["🔌 Application Layer"]
+            ALB["⚖️ Application<br/>Load Balancer"]
+            EC2ASG["🖥️ EC2<br/>Auto Scaling Group"]
+            Lambda["⚡ Lambda<br/>Serverless Functions"]
+            APIGW["🚪 API Gateway<br/>REST API"]
+        end
+        
+        subgraph "data-tier" ["💾 Data & Storage"]
+            RDS["🗄️ RDS<br/>Relational Database"]
+            DynamoDB["⚡ DynamoDB<br/>NoSQL Database"]
+            S3["📦 S3 Bucket<br/>Object Storage"]
+            ElastiCache["🚀 ElastiCache<br/>In-Memory Cache"]
+        end
+        
+        subgraph "security-tier" ["🔐 Security & Monitoring"]
+            IAM["👤 IAM<br/>Identity & Access Management"]
+            CloudWatch["📈 CloudWatch<br/>Monitoring & Logging"]
+            VPC["🏢 VPC<br/>Virtual Private Cloud"]
+        end
+        
+        subgraph "integration-tier" ["🔗 Integration Services"]
+            SQS["📬 SQS<br/>Message Queues"]
+            SNS["📢 SNS<br/>Notification Service"]
+        end
+    end
+    
+    %% External Users
+    Users["👥 Users"]
+    
+    %% Connection Flows
+    Users --> R53
+    R53 --> CF
+    CF --> S3Web
+    Users --> ALB
+    ALB --> EC2ASG
+    APIGW --> Lambda
+    Lambda --> RDS
+    Lambda --> DynamoDB
+    EC2ASG --> RDS
+    Lambda --> S3
+    EC2ASG --> ElastiCache
+    Lambda --> SQS
+    SQS --> SNS
+    
+    %% AWS Official Color Styling
+    classDef awsCompute fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsStorage fill:#3F48CC,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsDatabase fill:#C925D1,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsNetwork fill:#FF4B4B,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsSecurity fill:#DD344C,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsIntegration fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    
+    %% Apply Styling
+    class EC2ASG,Lambda awsCompute
+    class S3Web,S3 awsStorage
+    class RDS,DynamoDB,ElastiCache awsDatabase
+    class R53,CF,ALB,APIGW awsNetwork
+    class IAM,CloudWatch,VPC awsSecurity
+    class SQS,SNS awsIntegration"""
         end
         
         subgraph "Frontend Hosting"

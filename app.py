@@ -1,6 +1,8 @@
 import streamlit as st
 import os
+import re
 from pathlib import Path
+from datetime import datetime
 from services.ai_service import AIService
 from services.file_service import FileService
 from engines.spec_engine import SpecEngine
@@ -19,6 +21,52 @@ def load_css():
     if css_file.exists():
         with open(css_file) as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+def validate_mermaid_diagram(diagram_code: str) -> tuple[bool, str]:
+    """Validate Mermaid diagram syntax and structure"""
+    if not diagram_code or not diagram_code.strip():
+        return False, "Empty diagram code"
+    
+    lines = diagram_code.strip().split('\n')
+    
+    # Check for valid diagram type
+    valid_types = ['graph', 'flowchart', 'sequenceDiagram', 'erDiagram', 'classDiagram', 'gitgraph', 'pie', 'journey']
+    first_line = lines[0].strip()
+    has_valid_type = any(first_line.startswith(diagram_type) for diagram_type in valid_types)
+    
+    if not has_valid_type:
+        return False, f"Invalid or missing diagram type. Found: '{first_line}'"
+    
+    # Check for common syntax issues
+    issues = []
+    
+    # Check for unmatched brackets
+    bracket_count = 0
+    for line in lines:
+        bracket_count += line.count('[') - line.count(']')
+    if bracket_count != 0:
+        issues.append("Unmatched square brackets")
+    
+    # Check for invalid characters in node IDs
+    for line in lines:
+        if '-->' in line or '->' in line:
+            # Extract node IDs from connection lines
+            parts = re.split(r'-->|->|\s+', line.strip())
+            for part in parts:
+                if part and not re.match(r'^[a-zA-Z0-9_\-\[\](){}":;,\s<>|&%]*$', part):
+                    issues.append(f"Invalid characters in line: {line.strip()}")
+                    break
+    
+    # Check for proper subgraph closure
+    subgraph_count = sum(1 for line in lines if line.strip().startswith('subgraph'))
+    end_count = sum(1 for line in lines if line.strip() == 'end')
+    if subgraph_count > end_count:
+        issues.append("Unclosed subgraph(s)")
+    
+    if issues:
+        return False, "; ".join(issues)
+    
+    return True, "Diagram syntax is valid"
 
 def main():
     load_css()
@@ -777,16 +825,39 @@ def show_diagrams():
         source_info = diagram.get('source', 'Unknown')
         st.info(f"📋 Generated from: **{source_info}**")
         
-        # Display the Mermaid diagram
+        # Display the Mermaid diagram with validation
         try:
+            # Validate diagram before displaying
+            is_valid, validation_message = validate_mermaid_diagram(diagram['code'])
+            
+            if not is_valid:
+                st.warning(f"⚠️ Diagram validation warning: {validation_message}")
+            else:
+                st.success("✅ Diagram syntax validated successfully")
+            
             st.code(diagram['code'], language='mermaid')
             
             # Render the diagram using Streamlit's built-in support
             with st.expander("🖼️ Rendered Diagram", expanded=True):
+                # Show validation status
+                if is_valid:
+                    st.success("✅ Diagram ready for export and viewing")
+                else:
+                    st.warning(f"⚠️ {validation_message}")
+                
                 # Note: Streamlit doesn't have native Mermaid support, so we show the code
-                # In a real implementation, you might use a component like streamlit-mermaid
                 st.markdown("```mermaid\n" + diagram['code'] + "\n```")
-                st.info("💡 Copy the code above and paste it into a Mermaid viewer like mermaid.live or GitHub to see the rendered diagram.")
+                
+                # Provide helpful links
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.markdown("🔗 [Mermaid Live Editor](https://mermaid.live)")
+                with col2:
+                    st.markdown("🔗 [GitHub Mermaid Docs](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/creating-diagrams)")
+                with col3:
+                    st.markdown("🔗 [Mermaid Documentation](https://mermaid.js.org/)")
+                
+                st.info("💡 Copy the code above and paste it into any of these Mermaid viewers to see the rendered diagram.")
             
             # Download options
             col1, col2 = st.columns(2)
@@ -800,24 +871,276 @@ def show_diagrams():
                 )
             
             with col2:
-                # Create a simple HTML file with the diagram
-                html_content = f"""
-<!DOCTYPE html>
-<html>
+                # Create a robust HTML file with error handling
+                from datetime import datetime
+                html_content = f"""<!DOCTYPE html>
+<html lang="en">
 <head>
-    <title>{diagram['type']}</title>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{diagram['type']} - OpenFlux Generated</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <style>
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }}
+        .container {{
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }}
+        .header {{
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #FF9900;
+        }}
+        .header h1 {{
+            color: #232F3E;
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 700;
+        }}
+        .header p {{
+            color: #666;
+            margin: 10px 0 0 0;
+            font-size: 1.1em;
+        }}
+        .diagram-container {{
+            text-align: center;
+            margin: 20px 0;
+            padding: 25px;
+            background: #fafafa;
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+        }}
+        .mermaid {{
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            display: inline-block;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 100%;
+            overflow-x: auto;
+        }}
+        .footer {{
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+            color: #888;
+            font-size: 0.9em;
+        }}
+        .error-message {{
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            box-shadow: 0 4px 15px rgba(255,107,107,0.3);
+        }}
+        .error-message h3 {{
+            margin-top: 0;
+            color: white;
+        }}
+        .error-code {{
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }}
+        .links {{
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }}
+        .links a {{
+            color: #3498db;
+            text-decoration: none;
+            padding: 8px 16px;
+            background: #ecf0f1;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }}
+        .links a:hover {{
+            background: #3498db;
+            color: white;
+            transform: translateY(-2px);
+        }}
+        .loading {{
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }}
+        .spinner {{
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #FF9900;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }}
+        @keyframes spin {{
+            0% {{ transform: rotate(0deg); }}
+            100% {{ transform: rotate(360deg); }}
+        }}
+    </style>
 </head>
 <body>
-    <div class="mermaid">
+    <div class="container">
+        <div class="header">
+            <h1>📊 {diagram['type']}</h1>
+            <p>Generated by OpenFlux from {diagram.get('source', 'Unknown Source')}</p>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Rendering diagram...</p>
+        </div>
+        
+        <div class="diagram-container" id="diagram-container" style="display: none;">
+            <div class="mermaid" id="diagram">
 {diagram['code']}
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Powered by OpenFlux & Mermaid.js v10.6.1</p>
+        </div>
     </div>
+
     <script>
-        mermaid.initialize({{startOnLoad: true}});
+        // Configure Mermaid with comprehensive error handling
+        mermaid.initialize({{
+            startOnLoad: false,
+            theme: 'default',
+            themeVariables: {{
+                primaryColor: '#FF9900',
+                primaryTextColor: '#232F3E',
+                primaryBorderColor: '#FF9900',
+                lineColor: '#232F3E',
+                secondaryColor: '#f8f9fa',
+                tertiaryColor: '#ffffff',
+                background: '#ffffff',
+                mainBkg: '#ffffff',
+                secondBkg: '#f8f9fa',
+                tertiaryBkg: '#ffffff'
+            }},
+            flowchart: {{
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }},
+            sequence: {{
+                useMaxWidth: true,
+                wrap: true,
+                width: 150
+            }},
+            er: {{
+                useMaxWidth: true
+            }},
+            class: {{
+                useMaxWidth: true
+            }},
+            securityLevel: 'loose',
+            maxTextSize: 50000,
+            maxEdges: 500,
+            fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif'
+        }});
+
+        // Enhanced diagram rendering with comprehensive error handling
+        async function renderDiagram() {{
+            const loadingElement = document.getElementById('loading');
+            const containerElement = document.getElementById('diagram-container');
+            const diagramElement = document.getElementById('diagram');
+            
+            try {{
+                // Show loading state
+                loadingElement.style.display = 'block';
+                containerElement.style.display = 'none';
+                
+                // Get the diagram code
+                const diagramCode = diagramElement.textContent.trim();
+                
+                // Validate diagram code before rendering
+                if (!diagramCode) {{
+                    throw new Error('Empty diagram code');
+                }}
+                
+                // Render the diagram
+                const {{ svg }} = await mermaid.render('generatedDiagram', diagramCode);
+                
+                // Successfully rendered
+                diagramElement.innerHTML = svg;
+                loadingElement.style.display = 'none';
+                containerElement.style.display = 'block';
+                
+                // Add click handlers for better interactivity
+                const svgElement = diagramElement.querySelector('svg');
+                if (svgElement) {{
+                    svgElement.style.maxWidth = '100%';
+                    svgElement.style.height = 'auto';
+                }}
+                
+            }} catch (error) {{
+                console.error('Mermaid rendering error:', error);
+                
+                // Hide loading and show error
+                loadingElement.style.display = 'none';
+                containerElement.style.display = 'block';
+                
+                // Create comprehensive error display
+                diagramElement.innerHTML = `
+                    <div class="error-message">
+                        <h3>⚠️ Diagram Rendering Error</h3>
+                        <p><strong>Error:</strong> ${{error.message || 'Unknown rendering error'}}</p>
+                        <p>The diagram could not be rendered due to a syntax or compatibility issue. The raw Mermaid code is shown below:</p>
+                        <div class="error-code">{diagram['code'].replace('<', '&lt;').replace('>', '&gt;')}</div>
+                        <div class="links">
+                            <a href="https://mermaid.live" target="_blank">🔗 Try in Mermaid Live Editor</a>
+                            <a href="https://mermaid.js.org/syntax/" target="_blank">📚 Mermaid Documentation</a>
+                            <a href="https://github.com/mermaid-js/mermaid/issues" target="_blank">🐛 Report Issue</a>
+                        </div>
+                        <p><small><strong>Tip:</strong> Copy the code above and paste it into the Mermaid Live Editor to debug and fix any syntax issues.</small></p>
+                    </div>
+                `;
+            }}
+        }}
+
+        // Start rendering when page loads
+        document.addEventListener('DOMContentLoaded', function() {{
+            // Add a small delay to ensure everything is loaded
+            setTimeout(renderDiagram, 100);
+        }});
+        
+        // Handle window resize for responsive diagrams
+        window.addEventListener('resize', function() {{
+            const svgElement = document.querySelector('#diagram svg');
+            if (svgElement) {{
+                svgElement.style.maxWidth = '100%';
+                svgElement.style.height = 'auto';
+            }}
+        }});
     </script>
 </body>
-</html>
-"""
+</html>"""
                 st.download_button(
                     label="📄 Download HTML",
                     data=html_content,

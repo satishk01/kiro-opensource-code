@@ -46,14 +46,17 @@ class MCPService:
                                         components: List[str], 
                                         connections: List[Dict],
                                         title: str = "AWS Architecture") -> Optional[str]:
-        """Generate AWS architecture diagram using MCP server"""
+        """Generate AWS architecture diagram using MCP server with enhanced icons"""
         try:
-            # Prepare the diagram specification
+            # Prepare the enhanced diagram specification with icon support
             diagram_spec = {
                 "title": title,
-                "components": components,
+                "components": self._enhance_components_with_icons(components),
                 "connections": connections,
-                "layout": "hierarchical"
+                "layout": "hierarchical",
+                "style": "aws-icons",
+                "format": "mermaid",
+                "theme": "aws"
             }
             
             # Create temporary file for input
@@ -62,27 +65,30 @@ class MCPService:
                 input_file = f.name
             
             try:
-                # Call the MCP server through uvx
+                # Call the MCP server through uvx with enhanced options
                 result = subprocess.run([
                     "uvx", 
                     "awslabs.aws-diagram-mcp-server",
                     "--input", input_file,
-                    "--format", "mermaid"
-                ], capture_output=True, text=True, timeout=30)
+                    "--format", "mermaid",
+                    "--style", "icons",
+                    "--theme", "aws"
+                ], capture_output=True, text=True, timeout=45)
                 
                 if result.returncode == 0:
-                    return result.stdout.strip()
+                    diagram_output = result.stdout.strip()
+                    # Post-process to ensure icons and styling
+                    return self._enhance_mermaid_with_aws_styling(diagram_output)
                 else:
                     self.logger.error(f"AWS diagram generation failed: {result.stderr}")
-                    return self._generate_fallback_aws_diagram(components, connections)
-                    
+                    return self._generate_fallback_aws_diagram_with_icons(components, connections)
             finally:
                 # Clean up temporary file
                 os.unlink(input_file)
                 
         except Exception as e:
             self.logger.error(f"Error generating AWS architecture diagram: {e}")
-            return self._generate_fallback_aws_diagram(components, connections)
+            return self._generate_fallback_aws_diagram_with_icons(components, connections)
     
     def generate_aws_sequence_diagram(self, 
                                     interactions: List[Dict],
@@ -187,20 +193,139 @@ class MCPService:
         
         return connections
     
+    def _enhance_components_with_icons(self, components: List[str]) -> List[Dict]:
+        """Enhance AWS components with draw.io-style icon information"""
+        aws_icons = {
+            'EC2': '🖥️',
+            'S3': '📁',
+            'RDS': '🗄️',
+            'Lambda': '⚡',
+            'API Gateway': '🚪',
+            'CloudFront': '📡',
+            'Route 53': '🌍',
+            'ELB': '⚖️',
+            'ALB': '⚖️',
+            'NLB': '⚖️',
+            'VPC': '🏢',
+            'IAM': '👤',
+            'CloudWatch': '📈',
+            'SNS': '📢',
+            'SQS': '📬',
+            'DynamoDB': '⚡',
+            'ElastiCache': '🚀',
+            'ECS': '🐳',
+            'EKS': '☸️',
+            'Aurora': '🌟',
+            'Cognito': '🔑',
+            'KMS': '🔐',
+            'WAF': '🛡️',
+            'CloudTrail': '🔍',
+            'X-Ray': '🔬',
+            'EventBridge': '🌉',
+            'Secrets Manager': '🔒',
+            'EFS': '📂',
+            'Redshift': '📊',
+            'Kinesis': '🌊',
+            'Step Functions': '🔄',
+            'CodePipeline': '🚀',
+            'CodeBuild': '🔨',
+            'CodeDeploy': '📦'
+        }
+        
+        enhanced_components = []
+        for component in components:
+            icon = aws_icons.get(component, '☁️')
+            enhanced_components.append({
+                'name': component,
+                'icon': icon,
+                'type': 'aws-service',
+                'label': f"{icon} {component}",
+                'category': self._get_aws_service_category(component)
+            })
+        
+        return enhanced_components
+    
+    def _get_aws_service_category(self, service: str) -> str:
+        """Get AWS service category for better organization"""
+        categories = {
+            'compute': ['EC2', 'Lambda', 'ECS', 'EKS', 'Fargate'],
+            'storage': ['S3', 'EFS', 'EBS'],
+            'database': ['RDS', 'DynamoDB', 'Aurora', 'ElastiCache', 'Redshift'],
+            'network': ['VPC', 'CloudFront', 'Route 53', 'ALB', 'NLB', 'ELB', 'API Gateway', 'WAF'],
+            'security': ['IAM', 'Cognito', 'KMS', 'Secrets Manager'],
+            'monitoring': ['CloudWatch', 'CloudTrail', 'X-Ray'],
+            'integration': ['SQS', 'SNS', 'EventBridge', 'Kinesis', 'Step Functions'],
+            'devops': ['CodePipeline', 'CodeBuild', 'CodeDeploy']
+        }
+        
+        for category, services in categories.items():
+            if service in services:
+                return category
+        return 'other'
+    
+    def _enhance_mermaid_with_aws_styling(self, diagram: str) -> str:
+        """Enhance Mermaid diagram with AWS styling and icons"""
+        if not diagram or not diagram.strip():
+            return diagram
+        
+        # Add AWS color scheme and styling
+        aws_styling = """
+    %% AWS Official Color Styling
+    classDef awsCompute fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsStorage fill:#3F48CC,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsDatabase fill:#C925D1,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsNetwork fill:#FF4B4B,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsSecurity fill:#DD344C,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsMonitoring fill:#759C3E,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsIntegration fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsAnalytics fill:#8C4FFF,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsDevOps fill:#FF6B6B,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold"""
+        
+        # Add styling to the diagram if not already present
+        if "classDef aws" not in diagram:
+            diagram += "\n" + aws_styling
+        
+        return diagram
+    
     def _generate_fallback_aws_diagram(self, components: List[str], connections: List[Dict]) -> str:
         """Generate fallback AWS architecture diagram when MCP server fails"""
-        diagram = "graph TB\n"
+        return self._generate_fallback_aws_diagram_with_icons(components, connections)
+    
+    def _generate_fallback_aws_diagram_with_icons(self, components: List[str], connections: List[Dict]) -> str:
+        """Generate fallback AWS diagram with draw.io-style icons when MCP server fails"""
+        aws_icons = {
+            'EC2': '🖥️', 'S3': '📁', 'RDS': '🗄️', 'Lambda': '⚡', 'API Gateway': '🚪',
+            'CloudFront': '📡', 'Route 53': '🌍', 'ALB': '⚖️', 'VPC': '🏢', 'IAM': '👤',
+            'CloudWatch': '📈', 'SNS': '📢', 'SQS': '📬', 'DynamoDB': '⚡', 'ElastiCache': '🚀',
+            'ECS': '🐳', 'EKS': '☸️', 'Aurora': '🌟', 'Cognito': '🔑', 'KMS': '🔐',
+            'WAF': '🛡️', 'CloudTrail': '🔍', 'X-Ray': '🔬', 'EventBridge': '🌉',
+            'Secrets Manager': '🔒', 'EFS': '📂'
+        }
         
-        # Add components
+        diagram = "graph TB\n"
+        diagram += "    %% AWS Architecture with Draw.io Style Icons - Fallback\n\n"
+        
+        # Add components with icons
         for i, component in enumerate(components):
+            icon = aws_icons.get(component, '☁️')
             safe_name = component.replace(" ", "_").replace("-", "_")
-            diagram += f"    {safe_name}[{component}]\n"
+            diagram += f"    {safe_name}[\"{icon} {component}<br/>AWS Service\"]\n"
+        
+        diagram += "\n"
         
         # Add connections
         for conn in connections:
             from_safe = conn["from"].replace(" ", "_").replace("-", "_")
             to_safe = conn["to"].replace(" ", "_").replace("-", "_")
             diagram += f"    {from_safe} --> {to_safe}\n"
+        
+        # Add AWS styling
+        diagram += """
+    %% AWS Official Color Styling
+    classDef awsService fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsStorage fill:#3F48CC,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    classDef awsDatabase fill:#C925D1,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
+    class """ + ",".join([comp.replace(" ", "_").replace("-", "_") for comp in components]) + " awsService"
         
         return diagram
     
