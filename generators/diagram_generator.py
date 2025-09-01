@@ -201,17 +201,24 @@ Focus on:
             return self._generate_fallback_class_diagram(class_files)
     
     def generate_aws_architecture_diagram(self, codebase: Dict, analysis: Dict = None) -> str:
-        """Generate AWS architecture diagram with optional MCP server enhancement"""
+        """Generate AWS architecture diagram using MCP server"""
         try:
             is_spec_content = analysis and analysis.get('source') == 'specification'
-            use_mcp_server = analysis and analysis.get('use_mcp_server', False)
             
+<<<<<<< HEAD
             # For basic AWS Architecture, use AI-based generation
             if not use_mcp_server:
                 return self._generate_basic_aws_architecture(codebase, is_spec_content)
             
             # For AWS Architecture with AWS Components, use AWS Labs MCP server
             # Extract AWS components from codebase or spec first
+=======
+            # Initialize MCP service if not already done
+            if not self.mcp_service.initialize_aws_diagram_server():
+                return self._generate_fallback_aws_architecture(codebase, is_spec_content)
+            
+            # Extract AWS components from codebase or spec
+>>>>>>> parent of a07020b (diagram gen 2)
             if is_spec_content:
                 # For spec content, use AI to extract AWS components from requirements and design
                 components = self._ai_extract_aws_components_from_spec(codebase)
@@ -225,6 +232,7 @@ Focus on:
                     components = self._ai_extract_aws_components(codebase)
                     connections = self._ai_extract_aws_connections(codebase, components)
             
+<<<<<<< HEAD
             # Ensure we have some components to work with
             if not components:
                 components = ["EC2", "RDS", "S3", "API Gateway", "Lambda", "CloudFront"]
@@ -252,9 +260,20 @@ Focus on:
             
             # Fallback to our enhanced diagram generation
             return self._generate_enhanced_fallback_aws_architecture(codebase, is_spec_content)
+=======
+            # Generate diagram using MCP server
+            title = "AWS Architecture from Specification" if is_spec_content else "AWS Architecture"
+            diagram = self.mcp_service.generate_aws_architecture_diagram(
+                components=components,
+                connections=connections,
+                title=title
+            )
+            
+            return diagram if diagram else self._generate_fallback_aws_architecture(codebase, is_spec_content)
+>>>>>>> parent of a07020b (diagram gen 2)
             
         except Exception as e:
-            return self._generate_enhanced_fallback_aws_architecture(codebase, is_spec_content)
+            return self._generate_fallback_aws_architecture(codebase, is_spec_content)
     
     def generate_sequence_diagram(self, codebase: Dict, analysis: Dict = None) -> str:
         """Generate sequence diagram showing interactions"""
@@ -921,6 +940,7 @@ Return only the JSON array of connection objects."""
         
         return interactions
     
+<<<<<<< HEAD
     # Fallback diagram generators
     def _generate_fallback_er_diagram(self, model_files: Dict) -> str:
         """Generate a basic ER diagram when AI generation fails"""
@@ -995,6 +1015,8 @@ Return only the JSON array of connection objects."""
     
     BaseClass <|-- DerivedClass"""
     
+=======
+>>>>>>> parent of a07020b (diagram gen 2)
     def _generate_fallback_aws_architecture(self, codebase: Dict, is_spec_content: bool = False) -> str:
         """Generate fallback AWS architecture diagram"""
         if is_spec_content:

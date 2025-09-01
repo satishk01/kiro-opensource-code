@@ -733,7 +733,6 @@ def show_diagrams():
         "Architecture Diagram": "High-level system architecture and components",
         "Class Diagram": "Object-oriented class structures and relationships",
         "AWS Architecture": "AWS cloud architecture with services and connections",
-        "AWS Architecture with AWS Components": "Enhanced AWS architecture using MCP server with detailed AWS components",
         "Sequence Diagram": "Interaction flows and API communications"
     }
     
@@ -795,11 +794,6 @@ def show_diagrams():
                     diagram_code = st.session_state.diagram_generator.generate_class_diagram(codebase, analysis)
                 elif selected_type == "AWS Architecture":
                     diagram_code = st.session_state.diagram_generator.generate_aws_architecture_diagram(codebase, analysis)
-                elif selected_type == "AWS Architecture with AWS Components":
-                    # Enhanced AWS architecture with MCP server
-                    analysis_enhanced = analysis.copy() if analysis else {}
-                    analysis_enhanced['use_mcp_server'] = True
-                    diagram_code = st.session_state.diagram_generator.generate_aws_architecture_diagram(codebase, analysis_enhanced)
                 elif selected_type == "Sequence Diagram":
                     diagram_code = st.session_state.diagram_generator.generate_sequence_diagram(codebase, analysis)
                 
@@ -1210,16 +1204,14 @@ def show_diagrams():
         - **Data Flow Diagram**: Illustrates how data moves through your system
         - **Architecture Diagram**: High-level view of system components and layers
         - **Class Diagram**: Object-oriented classes, methods, and inheritance
-        - **AWS Architecture**: Basic AWS cloud architecture with core services
-        - **AWS Architecture with AWS Components**: Enhanced AWS architecture using MCP server with detailed components
+        - **AWS Architecture**: Cloud infrastructure with AWS services (uses MCP server)
         - **Sequence Diagram**: Time-ordered interactions between components
         
         **Tips:**
         - Generate diagrams from either your specification or analyzed codebase
         - Spec-based diagrams focus on planned architecture and requirements
         - Codebase diagrams show actual implementation structure
-        - **AWS Architecture**: Basic AWS diagrams using AI generation
-        - **AWS Architecture with AWS Components**: Enhanced diagrams using MCP server (requires uvx)
+        - AWS diagrams work best with cloud-native applications or specs
         - Sequence diagrams are great for API-heavy applications
         - All diagrams are generated in Mermaid format for easy sharing
         """)
