@@ -758,12 +758,15 @@ def show_diagrams():
         st.subheader(f"📊 {diagram['type']}")
         
 <<<<<<< HEAD
+<<<<<<< HEAD
         # Show data source info
         source_info = diagram.get('source', 'Unknown')
         st.info(f"📋 Generated from: **{source_info}**")
         
         # Display the Mermaid diagram with validation
 =======
+=======
+>>>>>>> parent of b0b6632 (diagrams gen1)
         # Display the Mermaid diagram
 >>>>>>> parent of b0b6632 (diagrams gen1)
         try:

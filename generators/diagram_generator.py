@@ -155,6 +155,7 @@ Focus on:
         """Generate AWS architecture diagram using MCP server"""
         try:
 <<<<<<< HEAD
+<<<<<<< HEAD
             is_spec_content = analysis and analysis.get('source') == 'specification'
             
 <<<<<<< HEAD
@@ -167,10 +168,13 @@ Focus on:
 =======
 =======
 >>>>>>> parent of b0b6632 (diagrams gen1)
+=======
+>>>>>>> parent of b0b6632 (diagrams gen1)
             # Initialize MCP service if not already done
             if not self.mcp_service.initialize_aws_diagram_server():
                 return self._generate_fallback_aws_architecture(codebase)
             
+<<<<<<< HEAD
 <<<<<<< HEAD
             # Extract AWS components from codebase or spec
 >>>>>>> parent of a07020b (diagram gen 2)
@@ -181,6 +185,16 @@ Focus on:
             # Extract AWS components from codebase
             components = self.mcp_service.extract_aws_components_from_codebase(codebase)
             connections = self.mcp_service.extract_connections_from_codebase(codebase, components)
+=======
+            # Extract AWS components from codebase
+            components = self.mcp_service.extract_aws_components_from_codebase(codebase)
+            connections = self.mcp_service.extract_connections_from_codebase(codebase, components)
+            
+            if not components:
+                # Use AI to identify potential AWS components
+                components = self._ai_extract_aws_components(codebase)
+                connections = self._ai_extract_aws_connections(codebase, components)
+>>>>>>> parent of b0b6632 (diagrams gen1)
             
             if not components:
                 # Use AI to identify potential AWS components
@@ -225,8 +239,12 @@ Focus on:
             )
             
 <<<<<<< HEAD
+<<<<<<< HEAD
             return diagram if diagram else self._generate_fallback_aws_architecture(codebase, is_spec_content)
 >>>>>>> parent of a07020b (diagram gen 2)
+=======
+            return diagram if diagram else self._generate_fallback_aws_architecture(codebase)
+>>>>>>> parent of b0b6632 (diagrams gen1)
 =======
             return diagram if diagram else self._generate_fallback_aws_architecture(codebase)
 >>>>>>> parent of b0b6632 (diagrams gen1)
@@ -842,6 +860,7 @@ Return only the JSON array of connection objects."""
     
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     # Fallback diagram generators
     def _generate_fallback_er_diagram(self, model_files: Dict) -> str:
         """Generate a basic ER diagram when AI generation fails"""
@@ -919,6 +938,9 @@ Return only the JSON array of connection objects."""
 =======
 >>>>>>> parent of a07020b (diagram gen 2)
     def _generate_fallback_aws_architecture(self, codebase: Dict, is_spec_content: bool = False) -> str:
+=======
+    def _generate_fallback_aws_architecture(self, codebase: Dict) -> str:
+>>>>>>> parent of b0b6632 (diagrams gen1)
 =======
     def _generate_fallback_aws_architecture(self, codebase: Dict) -> str:
 >>>>>>> parent of b0b6632 (diagrams gen1)
