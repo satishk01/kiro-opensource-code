@@ -210,12 +210,8 @@ Focus on:
             if not use_mcp_server:
                 return self._generate_basic_aws_architecture(codebase, is_spec_content)
             
-            # For AWS Architecture with AWS Components, use MCP server
-            # Initialize MCP service if not already done
-            if not self.mcp_service.initialize_aws_diagram_server():
-                return self._generate_enhanced_fallback_aws_architecture(codebase, is_spec_content)
-            
-            # Extract AWS components from codebase or spec
+            # For AWS Architecture with AWS Components, use AWS Labs MCP server
+            # Extract AWS components from codebase or spec first
             if is_spec_content:
                 # For spec content, use AI to extract AWS components from requirements and design
                 components = self._ai_extract_aws_components_from_spec(codebase)
@@ -229,15 +225,33 @@ Focus on:
                     components = self._ai_extract_aws_components(codebase)
                     connections = self._ai_extract_aws_connections(codebase, components)
             
-            # Generate diagram using MCP server
-            title = "Enhanced AWS Architecture from Specification" if is_spec_content else "Enhanced AWS Architecture"
-            diagram = self.mcp_service.generate_aws_architecture_diagram(
-                components=components,
-                connections=connections,
-                title=title
-            )
+            # Ensure we have some components to work with
+            if not components:
+                components = ["EC2", "RDS", "S3", "API Gateway", "Lambda", "CloudFront"]
+                connections = [
+                    {"from": "CloudFront", "to": "S3", "type": "serves", "description": "Serves static content"},
+                    {"from": "API Gateway", "to": "Lambda", "type": "triggers", "description": "Triggers serverless functions"},
+                    {"from": "Lambda", "to": "RDS", "type": "queries", "description": "Queries database"},
+                    {"from": "EC2", "to": "RDS", "type": "connects", "description": "Database connections"}
+                ]
             
-            return diagram if diagram else self._generate_enhanced_fallback_aws_architecture(codebase, is_spec_content)
+            # Try to initialize and use AWS Labs MCP server
+            mcp_available = self.mcp_service.initialize_aws_diagram_server()
+            
+            if mcp_available:
+                # Generate diagram using AWS Labs MCP server
+                title = "Enhanced AWS Architecture from Specification" if is_spec_content else "Enhanced AWS Architecture"
+                diagram = self.mcp_service.generate_aws_architecture_diagram(
+                    components=components,
+                    connections=connections,
+                    title=title
+                )
+                
+                if diagram and len(diagram.strip()) > 50:  # Ensure we got a substantial diagram
+                    return diagram
+            
+            # Fallback to our enhanced diagram generation
+            return self._generate_enhanced_fallback_aws_architecture(codebase, is_spec_content)
             
         except Exception as e:
             return self._generate_enhanced_fallback_aws_architecture(codebase, is_spec_content)

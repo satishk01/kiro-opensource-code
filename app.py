@@ -1151,26 +1151,52 @@ def show_diagrams():
         except Exception as e:
             st.error(f"❌ Error displaying diagram: {str(e)}")
     
-    # AWS MCP Server Status
-    with st.expander("🔧 AWS Diagram MCP Server Status"):
-        if st.button("🔍 Check MCP Server Status"):
+    # AWS Labs MCP Server Status
+    with st.expander("🔧 AWS Labs MCP Server Status"):
+        if st.button("🔍 Check AWS Labs MCP Server Status"):
             try:
                 from services.mcp_service import MCPService
                 mcp_service = MCPService()
                 
-                if mcp_service.initialize_aws_diagram_server():
-                    st.success("✅ AWS Diagram MCP Server is available and ready")
-                    st.info("💡 AWS Architecture diagrams will use the MCP server for enhanced generation")
+                # Test the AWS Labs MCP server
+                test_result = mcp_service.test_aws_labs_mcp_server()
+                
+                if test_result["available"]:
+                    st.success("✅ AWS Labs MCP Server is available and ready")
+                    if test_result["version"]:
+                        st.info(f"📦 Version: {test_result['version']}")
+                    
+                    if "diagram_generation" in test_result["capabilities"]:
+                        st.success("🎨 Diagram generation capability confirmed")
+                        st.info("💡 AWS Architecture diagrams will use AWS Labs MCP server for enhanced generation")
+                    else:
+                        st.warning("⚠️ Diagram generation capability not confirmed")
+                        st.info("🔄 Will use enhanced fallback diagram generation")
                 else:
-                    st.warning("⚠️ AWS Diagram MCP Server not available")
-                    st.info("💡 Install with: `pip install uv && uv tool install uvx`")
-                    st.info("🔄 Fallback diagram generation will be used")
+                    st.warning("⚠️ AWS Labs MCP Server not available")
+                    if test_result["error"]:
+                        st.error(f"Error: {test_result['error']}")
+                    
+                    st.info("💡 Install with: `pip install uv && uvx awslabs.aws-documentation-mcp-server@latest --help`")
+                    st.info("🔄 Enhanced fallback diagram generation will be used")
+                    
             except Exception as e:
-                st.error(f"❌ Error checking MCP server: {str(e)}")
+                st.error(f"❌ Error checking AWS Labs MCP server: {str(e)}")
         
         st.markdown("""
-        **MCP Configuration:**
-        - Server: `awslabs.aws-diagram-mcp-server`
+        **AWS Labs MCP Configuration:**
+        - Server: `awslabs.aws-documentation-mcp-server@latest`
+        - Purpose: Generate comprehensive AWS architecture diagrams
+        - Features: AWS best practices, service recommendations, proper connections
+        
+        **Installation:**
+        ```bash
+        # Install uv and uvx
+        pip install uv
+        
+        # Test AWS Labs MCP server
+        uvx awslabs.aws-documentation-mcp-server@latest --help
+        ```
         - Command: `uvx awslabs.aws-diagram-mcp-server`
         - Status: Auto-configured in `.openflux/settings/mcp.json`
         """)
