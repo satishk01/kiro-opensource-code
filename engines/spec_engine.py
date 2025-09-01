@@ -209,7 +209,7 @@ Avoid:
 Each task should be concrete enough that a developer can execute it without additional clarification."""
 
         try:
-            response = self.ai_service.generate_text(tasks_prompt, self.kiro_system_prompt)
+            response = self.ai_service.generate_text(tasks_prompt, self.openflux_system_prompt)
             return response
                 
         except Exception as e:
