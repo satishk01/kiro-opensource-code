@@ -221,7 +221,7 @@ class AIService:
     
     def generate_requirements(self, description: str, context: Dict = None) -> str:
         """Generate EARS-format requirements from description"""
-        system_prompt = """You are Kiro, an AI assistant and IDE built to assist developers. 
+        system_prompt = """You are OpenFlux, an AI assistant and IDE built to assist developers. 
         Generate detailed requirements in EARS format (Easy Approach to Requirements Syntax) based on the provided description.
         
         Format the requirements as:
@@ -242,7 +242,7 @@ class AIService:
     
     def create_design(self, requirements: str, codebase: Dict = None) -> str:
         """Create design document from requirements"""
-        system_prompt = """You are Kiro, an AI assistant and IDE built to assist developers.
+        system_prompt = """You are OpenFlux, an AI assistant and IDE built to assist developers.
         Create a comprehensive design document based on the provided requirements.
         
         Include these sections:
@@ -266,7 +266,7 @@ class AIService:
 
     def analyze_codebase(self, files: Dict) -> Dict:
         """Analyze codebase structure and patterns"""
-        system_prompt = """You are Kiro, an AI assistant and IDE built to assist developers.
+        system_prompt = """You are OpenFlux, an AI assistant and IDE built to assist developers.
         Analyze the provided codebase and return insights about:
         - Architecture patterns
         - Technology stack

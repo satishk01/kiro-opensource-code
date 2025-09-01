@@ -14,7 +14,7 @@ class DiagramGenerator:
     
     def generate_er_diagram(self, codebase: Dict, analysis: Dict = None) -> str:
         """Generate Entity-Relationship diagram from codebase"""
-        system_prompt = """You are Kiro, an AI assistant specialized in creating technical diagrams.
+        system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
         
         Analyze the provided codebase and generate a Mermaid ER diagram that shows:
         - Database entities/models
@@ -49,7 +49,7 @@ Focus on identifying:
     
     def generate_data_flow_diagram(self, codebase: Dict, analysis: Dict = None) -> str:
         """Generate data flow diagram from codebase structure"""
-        system_prompt = """You are Kiro, an AI assistant specialized in creating technical diagrams.
+        system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
         
         Analyze the provided codebase and generate a Mermaid flowchart that shows:
         - Data flow between components
@@ -88,7 +88,7 @@ Focus on:
     
     def generate_architecture_diagram(self, codebase: Dict, analysis: Dict = None) -> str:
         """Generate system architecture diagram"""
-        system_prompt = """You are Kiro, an AI assistant specialized in creating technical diagrams.
+        system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
         
         Analyze the provided codebase and generate a Mermaid graph that shows:
         - System architecture components
@@ -119,7 +119,7 @@ Focus on:
     
     def generate_class_diagram(self, codebase: Dict, analysis: Dict = None) -> str:
         """Generate class diagram from object-oriented code"""
-        system_prompt = """You are Kiro, an AI assistant specialized in creating technical diagrams.
+        system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
         
         Analyze the provided codebase and generate a Mermaid class diagram that shows:
         - Classes and their methods/attributes

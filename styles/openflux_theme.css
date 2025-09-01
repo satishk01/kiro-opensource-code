@@ -1,0 +1,121 @@
+/* OpenFlux Theme CSS */
+:root {
+    --openflux-primary: #2563eb;
+    --openflux-secondary: #64748b;
+    --openflux-background: #0f172a;
+    --openflux-surface: #1e293b;
+    --openflux-text: #f8fafc;
+    --openflux-text-secondary: #cbd5e1;
+    --openflux-accent: #06b6d4;
+    --openflux-success: #10b981;
+    --openflux-warning: #f59e0b;
+    --openflux-error: #ef4444;
+    --openflux-border: #334155;
+}
+
+/* Main app styling */
+.stApp {
+    background-color: var(--openflux-background);
+    color: var(--openflux-text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Sidebar styling */
+.css-1d391kg, .css-1cypcdb {
+    background-color: var(--openflux-surface);
+    border-right: 1px solid var(--openflux-border);
+}
+
+/* Header styling */
+.main-header {
+    background: linear-gradient(135deg, var(--openflux-primary), var(--openflux-accent));
+    padding: 2rem;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.main-header h1 {
+    color: white;
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.main-header p {
+    color: rgba(255,255,255,0.9);
+    font-size: 1.1rem;
+    margin: 0.5rem 0 0 0;
+}
+
+/* Button styling */
+.stButton > button {
+    background: linear-gradient(135deg, var(--openflux-primary), #1d4ed8);
+    color: var(--openflux-text);
+    border: none;
+    border-radius: 8px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+}.stButt
+on > button:hover {
+    background: linear-gradient(135deg, #1d4ed8, var(--openflux-primary));
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+/* Text input styling */
+.stTextInput > div > div > input, .stTextArea > div > div > textarea {
+    background-color: var(--openflux-surface);
+    color: var(--openflux-text);
+    border: 2px solid var(--openflux-border);
+    border-radius: 8px;
+    padding: 0.75rem;
+}
+
+/* Chat message styling */
+.chat-message {
+    padding: 1.5rem;
+    margin: 1rem 0;
+    border-radius: 12px;
+    background-color: var(--openflux-surface);
+    border-left: 4px solid var(--openflux-accent);
+}
+
+.chat-message.user {
+    background: linear-gradient(135deg, var(--openflux-primary), #1d4ed8);
+    border-left-color: var(--openflux-text);
+    color: white;
+}
+
+/* Metric styling */
+.metric-container {
+    background: linear-gradient(135deg, var(--openflux-surface), #334155);
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid var(--openflux-border);
+    text-align: center;
+}
+
+.metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--openflux-accent);
+}
+
+/* Status indicators */
+.status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+}
+
+.status-connected {
+    background-color: var(--openflux-success);
+}
+
+.status-disconnected {
+    background-color: var(--openflux-error);
+}

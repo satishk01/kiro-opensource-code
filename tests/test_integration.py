@@ -1,5 +1,5 @@
 """
-Integration tests for the Kiro Streamlit app
+Integration tests for the OpenFlux Streamlit app
 """
 import unittest
 from unittest.mock import patch, MagicMock

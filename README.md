@@ -1,6 +1,6 @@
-# Kiro Streamlit App
+# OpenFlux Streamlit App
 
-A web-based implementation of Kiro's AI development assistant capabilities, built with Streamlit and integrated with AWS Bedrock for AI model access.
+A web-based implementation of OpenFlux's AI development assistant capabilities, built with Streamlit and integrated with AWS Bedrock for AI model access.
 
 ## Features
 
@@ -9,7 +9,7 @@ A web-based implementation of Kiro's AI development assistant capabilities, buil
 - **Spec Generation**: Create requirements, design documents, and implementation tasks
 - **JIRA Integration**: Automatically create JIRA tickets from generated tasks
 - **Diagram Generation**: Create ER diagrams and data flow diagrams from code
-- **Kiro-Style UI**: Familiar interface matching Kiro's look and feel
+- **OpenFlux-Style UI**: Familiar interface matching OpenFlux's look and feel
 - **Security**: Comprehensive input validation and security measures
 - **Monitoring**: Built-in logging and CloudWatch integration
 
@@ -26,7 +26,7 @@ A web-based implementation of Kiro's AI development assistant capabilities, buil
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd kiro-streamlit-app
+   cd openflux-streamlit-app
    ```
 
 2. **Install dependencies**
@@ -60,7 +60,7 @@ A web-based implementation of Kiro's AI development assistant capabilities, buil
 1. **Use CloudFormation template**
    ```bash
    aws cloudformation create-stack \
-     --stack-name kiro-app \
+     --stack-name openflux-app \
      --template-body file://deploy/cloudformation-template.yaml \
      --parameters ParameterKey=KeyPairName,ParameterValue=your-key-pair \
                   ParameterKey=VpcId,ParameterValue=vpc-xxxxxxxx \

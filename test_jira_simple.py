@@ -7,7 +7,7 @@ def test_jira_parsing_logic():
     """Test JIRA task parsing logic without imports"""
     print("🧪 Testing JIRA task parsing logic...")
     
-    # Sample Kiro tasks markdown
+    # Sample OpenFlux tasks markdown
     sample_tasks = """# Implementation Plan
 
 - [ ] 1. Set up project structure and dependencies
@@ -25,7 +25,7 @@ def test_jira_parsing_logic():
 
     # Simulate the parsing logic
     def parse_tasks_from_markdown(markdown: str):
-        """Parse tasks from Kiro markdown format"""
+        """Parse tasks from OpenFlux markdown format"""
         tasks = []
         current_task = None
         
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     if success:
         print("\n🎉 JIRA integration logic test passed!")
         print("The JIRA integration functionality is now implemented:")
-        print("  • Parse Kiro tasks from markdown format")
+        print("  • Parse OpenFlux tasks from markdown format")
         print("  • Create JIRA tickets from parsed tasks")
         print("  • Configure JIRA connection with API tokens")
         print("  • Track and manage created tickets")

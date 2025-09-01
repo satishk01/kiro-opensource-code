@@ -7,15 +7,15 @@ from engines.spec_engine import SpecEngine
 
 # Configure Streamlit page
 st.set_page_config(
-    page_title="Kiro AI Assistant",
+    page_title="OpenFlux AI Assistant",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Import custom CSS for Kiro styling
+# Import custom CSS for OpenFlux styling
 def load_css():
-    css_file = Path("styles/kiro_theme.css")
+    css_file = Path("styles/openflux_theme.css")
     if css_file.exists():
         with open(css_file) as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
@@ -41,7 +41,7 @@ def main():
     
     # Sidebar for navigation and model selection
     with st.sidebar:
-        st.title("🤖 Kiro AI Assistant")
+        st.title("🤖 OpenFlux AI Assistant")
         st.markdown("---")
         
         # Model selection
@@ -110,9 +110,9 @@ def main():
         show_jira_integration()
 
 def show_home_page():
-    st.title("Welcome to Kiro AI Assistant")
+    st.title("Welcome to OpenFlux AI Assistant")
     st.markdown("""
-    I'm Kiro, your AI-powered development companion. I'm here to help you with:
+    I'm OpenFlux, your AI-powered development companion. I'm here to help you with:
     
     - **Codebase Analysis**: Select folders and analyze your project files
     - **Spec Generation**: Create requirements, designs, and implementation plans
@@ -142,7 +142,7 @@ def show_home_page():
     
     # Quick start guide
     if not st.session_state.model_connected:
-        st.info("🚀 **Quick Start**: Select an AI model from the sidebar to begin using Kiro's features.")
+        st.info("🚀 **Quick Start**: Select an AI model from the sidebar to begin using OpenFlux's features.")
     elif not st.session_state.current_folder:
         st.info("📁 **Next Step**: Go to 'Folder Analysis' to select and analyze your project files.")
     else:
@@ -174,7 +174,7 @@ def show_home_page():
 
 def show_folder_analysis():
     st.title("📁 Folder Analysis")
-    st.markdown("Select and analyze your project folder to get started with Kiro's AI assistance.")
+    st.markdown("Select and analyze your project folder to get started with OpenFlux's AI assistance.")
     
     # Check if AI model is connected
     if not st.session_state.model_connected:
@@ -266,7 +266,7 @@ def show_folder_analysis():
 
 def show_spec_generation():
     st.title("📋 Spec Generation")
-    st.markdown("Generate requirements, design documents, and implementation plans using Kiro's methodology")
+    st.markdown("Generate requirements, design documents, and implementation plans using OpenFlux's methodology")
     
     # Check if AI model is connected
     if not st.session_state.model_connected:
@@ -654,7 +654,7 @@ def generate_jira_templates(parsed_tasks, issue_type, priority, project_key, add
     template_data = []
     
     for i, task in enumerate(parsed_tasks, 1):
-        labels = ["kiro-generated", "implementation"] if add_labels else []
+        labels = ["openflux-generated", "implementation"] if add_labels else []
         
         # Estimate story points based on task complexity
         estimated_points = len(task.get("subtasks", [])) + 2 if not story_points else story_points
@@ -670,7 +670,7 @@ def generate_jira_templates(parsed_tasks, issue_type, priority, project_key, add
             
             # Assignment and ownership
             "assignee": assignee,
-            "reporter": "kiro-ai-assistant",
+            "reporter": "openflux-ai-assistant",
             
             # Planning fields
             "story_points": estimated_points,
@@ -690,7 +690,7 @@ def generate_jira_templates(parsed_tasks, issue_type, priority, project_key, add
             "environment": "Development",
             "due_date": (datetime.now() + timedelta(days=estimated_points * 2)).strftime("%Y-%m-%d"),
             
-            # Kiro-specific fields
+            # OpenFlux-specific fields
             "requirements": task.get("requirements", []),
             "subtasks": [st["title"] for st in task.get("subtasks", [])],
             "acceptance_criteria": [
@@ -705,7 +705,7 @@ def generate_jira_templates(parsed_tasks, issue_type, priority, project_key, add
             "resolution": "",
             
             # Additional metadata
-            "created_by": "Kiro AI Assistant",
+            "created_by": "OpenFlux AI Assistant",
             "creation_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "task_number": task.get("number", str(i))
         }
@@ -837,7 +837,7 @@ def generate_jira_templates(parsed_tasks, issue_type, priority, project_key, add
         if ticket["affects_versions"]:
             md_content += f"**Affects Versions:** {', '.join(ticket['affects_versions'])}\n"
         
-        # Kiro-specific information
+        # OpenFlux-specific information
         if ticket["requirements"]:
             md_content += f"**Requirements:** {', '.join(ticket['requirements'])}\n"
         
@@ -861,9 +861,9 @@ def generate_jira_templates(parsed_tasks, issue_type, priority, project_key, add
         
         md_content += "---\n\n"
     
-    # Generate Tasks.md format (Kiro-style)
+    # Generate Tasks.md format (OpenFlux-style)
     tasks_md_content = "# Implementation Tasks (JIRA Export)\n\n"
-    tasks_md_content += f"Generated from Kiro on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    tasks_md_content += f"Generated from OpenFlux on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
     
     for i, ticket in enumerate(template_data, 1):
         # Main task checkbox
@@ -1128,9 +1128,9 @@ def show_jira_integration():
                 )
                 
                 add_labels = st.checkbox(
-                    "Add Kiro Labels", 
+                    "Add OpenFlux Labels", 
                     value=True, 
-                    help="Add 'kiro-generated' and 'implementation' labels"
+                    help="Add 'openflux-generated' and 'implementation' labels"
                 )
             
             with col2:
@@ -1228,7 +1228,7 @@ def show_jira_integration():
                             # Template format selection
                             template_format = st.radio(
                                 "Choose template format:",
-                                ["CSV (Production JIRA)", "JSON (API ready)", "Markdown (Human readable)", "Tasks.md (Kiro format)"],
+                                ["CSV (Production JIRA)", "JSON (API ready)", "Markdown (Human readable)", "Tasks.md (OpenFlux format)"],
                                 horizontal=True
                             )
                             
@@ -1272,8 +1272,8 @@ def show_jira_integration():
                             
                             else:  # Tasks.md format
                                 tasks_md_content = templates['tasks_md']
-                                st.markdown("#### Kiro Tasks.md Format")
-                                st.markdown("Perfect for continuing work in Kiro or importing back into specs:")
+                                st.markdown("#### OpenFlux Tasks.md Format")
+                                st.markdown("Perfect for continuing work in OpenFlux or importing back into specs:")
                                 with st.container():
                                     st.markdown(tasks_md_content)
                                 st.download_button(
@@ -1281,7 +1281,7 @@ def show_jira_integration():
                                     tasks_md_content,
                                     "implementation_tasks.md",
                                     "text/markdown",
-                                    help="Kiro-compatible tasks format for specs"
+                                    help="OpenFlux-compatible tasks format for specs"
                                 )
                             
                             # Quick download section for all formats
@@ -1323,7 +1323,7 @@ def show_jira_integration():
                                     templates['tasks_md'],
                                     "tasks.md",
                                     "text/markdown",
-                                    help="Kiro spec format"
+                                    help="OpenFlux spec format"
                                 )
                         
                         else:
@@ -1411,7 +1411,7 @@ def show_jira_integration():
                     templates['tasks_md'],
                     "implementation_tasks.md",
                     "text/markdown",
-                    help="Kiro-compatible tasks format"
+                    help="OpenFlux-compatible tasks format"
                 )
             
             # Show template preview

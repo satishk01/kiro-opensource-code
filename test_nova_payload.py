@@ -40,7 +40,7 @@ def test_nova_payload_format():
     print("\n🔧 Testing payload with system prompt...")
     system_payload = prepare_nova_payload(
         "Generate requirements for a todo app",
-        "You are Kiro, an AI assistant for developers."
+        "You are OpenFlux, an AI assistant for developers."
     )
     print(f"✅ System payload: {json.dumps(system_payload, indent=2)}")
     

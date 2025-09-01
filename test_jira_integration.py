@@ -13,7 +13,7 @@ def test_jira_parsing():
     """Test JIRA task parsing functionality"""
     print("🧪 Testing JIRA task parsing...")
     
-    # Sample Kiro tasks markdown
+    # Sample OpenFlux tasks markdown
     sample_tasks = """# Implementation Plan
 
 - [ ] 1. Set up project structure and dependencies
@@ -60,7 +60,7 @@ def test_jira_parsing():
     assert len(parsed_tasks[1]['subtasks']) == 1
     
     print("\n🎯 JIRA task parsing test passed!")
-    print("The JIRA integration can now parse Kiro tasks and create tickets.")
+    print("The JIRA integration can now parse OpenFlux tasks and create tickets.")
     
     return True
 

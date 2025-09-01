@@ -1,5 +1,5 @@
 """
-Monitoring and logging utilities for the Kiro Streamlit app
+Monitoring and logging utilities for the OpenFlux Streamlit app
 """
 import logging
 import time
@@ -12,10 +12,10 @@ from functools import wraps
 import boto3
 from botocore.exceptions import ClientError
 
-class KiroLogger:
-    """Enhanced logging for the Kiro application"""
+class OpenFluxLogger:
+    """Enhanced logging for the OpenFlux application"""
     
-    def __init__(self, name: str = "kiro_app"):
+    def __init__(self, name: str = "openflux_app"):
         self.logger = logging.getLogger(name)
         self.setup_logging()
     
@@ -104,7 +104,7 @@ class MetricsCollector:
     
     def __init__(self):
         self.cloudwatch = None
-        self.namespace = "KiroApp"
+        self.namespace = "OpenFluxApp"
         self.setup_cloudwatch()
     
     def setup_cloudwatch(self):
@@ -341,7 +341,7 @@ class HealthChecker:
         return checks
 
 # Global instances
-logger = KiroLogger()
+logger = OpenFluxLogger()
 metrics = MetricsCollector()
 performance_monitor_instance = PerformanceMonitor()
 health_checker = HealthChecker()
