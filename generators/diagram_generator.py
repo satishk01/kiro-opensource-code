@@ -563,6 +563,12 @@ Use proper AWS service icons and official AWS colors."""
     
     def generate_diagram_by_type(self, diagram_type: str, codebase: Dict, analysis: Dict = None) -> str:
         """Generate diagram based on specified type"""
+        # Check if this is spec content
+        is_spec_content = self._is_spec_content(codebase)
+        
+        if is_spec_content:
+            return self._generate_diagram_from_spec(diagram_type, codebase, analysis)
+        
         generators = {
             'er': self.generate_er_diagram,
             'data_flow': self.generate_data_flow_diagram,
@@ -574,3 +580,304 @@ Use proper AWS service icons and official AWS colors."""
         
         generator = generators.get(diagram_type, self.generate_architecture_diagram)
         return generator(codebase, analysis)
+    
+    def _is_spec_content(self, codebase: Dict) -> bool:
+        """Check if the codebase contains spec documents"""
+        spec_files = ['requirements.md', 'design.md', 'tasks.md', 'feature_description.txt']
+        return any(filename in codebase for filename in spec_files)
+    
+    def _generate_diagram_from_spec(self, diagram_type: str, spec_content: Dict, analysis: Dict = None) -> str:
+        """Generate diagram from spec documents"""
+        # Extract spec information
+        requirements = spec_content.get('requirements.md', '')
+        design = spec_content.get('design.md', '')
+        tasks = spec_content.get('tasks.md', '')
+        feature_description = spec_content.get('feature_description.txt', '')
+        
+        # Create enhanced prompts based on spec content
+        if diagram_type == 'er':
+            return self._generate_er_from_spec(requirements, design, feature_description)
+        elif diagram_type == 'data_flow':
+            return self._generate_data_flow_from_spec(requirements, design, feature_description)
+        elif diagram_type == 'class':
+            return self._generate_class_from_spec(requirements, design, feature_description)
+        elif diagram_type == 'sequence':
+            return self._generate_sequence_from_spec(requirements, design, feature_description)
+        elif diagram_type == 'architecture':
+            return self._generate_architecture_from_spec(requirements, design, feature_description)
+        elif diagram_type == 'aws_architecture':
+            return self._generate_aws_architecture_from_spec(requirements, design, feature_description)
+        else:
+            return self._generate_architecture_from_spec(requirements, design, feature_description)
+    
+    def _generate_er_from_spec(self, requirements: str, design: str, feature_description: str) -> str:
+        """Generate ER diagram from spec documents"""
+        system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
+        
+        Based on the provided requirements and design documents, generate a Mermaid ER diagram that shows:
+        - Data entities mentioned in the requirements
+        - Relationships between entities
+        - Key attributes and foreign keys
+        - Database schema structure implied by the design
+        
+        Return ONLY the Mermaid diagram code, starting with 'erDiagram' and properly formatted."""
+        
+        prompt = f"""Generate an ER diagram based on these specification documents:
+
+Feature Description:
+{feature_description}
+
+Requirements:
+{requirements}
+
+Design:
+{design}
+
+Focus on:
+1. Data models and entities mentioned in requirements
+2. Relationships described in the design
+3. Database schema structure
+4. User data, system data, and business entities"""
+        
+        try:
+            diagram_code = self.ai_service.generate_text(prompt, system_prompt)
+            return self._clean_mermaid_code(diagram_code, "erDiagram")
+        except Exception as e:
+            return self._generate_fallback_er_diagram({})
+    
+    def _generate_data_flow_from_spec(self, requirements: str, design: str, feature_description: str) -> str:
+        """Generate data flow diagram from spec documents"""
+        system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
+        
+        Based on the provided requirements and design documents, generate a Mermaid flowchart that shows:
+        - Data flow through the system
+        - Process steps described in requirements
+        - Component interactions from the design
+        - User interactions and system responses
+        
+        Return ONLY the Mermaid diagram code, starting with 'flowchart TD' and properly formatted."""
+        
+        prompt = f"""Generate a data flow diagram based on these specification documents:
+
+Feature Description:
+{feature_description}
+
+Requirements:
+{requirements}
+
+Design:
+{design}
+
+Focus on:
+1. User input and system processing flows
+2. Data transformations described in requirements
+3. Component interactions from design
+4. External system integrations"""
+        
+        try:
+            diagram_code = self.ai_service.generate_text(prompt, system_prompt)
+            return self._clean_mermaid_code(diagram_code, "flowchart")
+        except Exception as e:
+            return self._generate_fallback_flow_diagram({}, {})
+    
+    def _generate_class_from_spec(self, requirements: str, design: str, feature_description: str) -> str:
+        """Generate class diagram from spec documents"""
+        system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
+        
+        Based on the provided requirements and design documents, generate a Mermaid class diagram that shows:
+        - Classes and objects mentioned in the design
+        - Methods and attributes implied by requirements
+        - Relationships between components
+        - Object-oriented structure of the system
+        
+        Return ONLY the Mermaid diagram code, starting with 'classDiagram' and properly formatted."""
+        
+        prompt = f"""Generate a class diagram based on these specification documents:
+
+Feature Description:
+{feature_description}
+
+Requirements:
+{requirements}
+
+Design:
+{design}
+
+Focus on:
+1. Classes and objects mentioned in design
+2. Methods implied by functional requirements
+3. Data attributes from requirements
+4. Inheritance and composition relationships"""
+        
+        try:
+            diagram_code = self.ai_service.generate_text(prompt, system_prompt)
+            return self._clean_mermaid_code(diagram_code, "classDiagram")
+        except Exception as e:
+            return self._generate_fallback_class_diagram({})
+    
+    def _generate_sequence_from_spec(self, requirements: str, design: str, feature_description: str) -> str:
+        """Generate sequence diagram from spec documents"""
+        system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
+        
+        Based on the provided requirements and design documents, generate a Mermaid sequence diagram that shows:
+        - User interactions described in requirements
+        - System component interactions from design
+        - Process flows and message passing
+        - Temporal sequence of operations
+        
+        Return ONLY the Mermaid diagram code, starting with 'sequenceDiagram' and properly formatted."""
+        
+        prompt = f"""Generate a sequence diagram based on these specification documents:
+
+Feature Description:
+{feature_description}
+
+Requirements:
+{requirements}
+
+Design:
+{design}
+
+Focus on:
+1. User interaction flows from requirements
+2. System component communications from design
+3. Process sequences and timing
+4. Request/response patterns"""
+        
+        try:
+            diagram_code = self.ai_service.generate_text(prompt, system_prompt)
+            return self._clean_mermaid_code(diagram_code, "sequenceDiagram")
+        except Exception as e:
+            return self._generate_fallback_sequence_diagram({}, {})
+    
+    def _generate_architecture_from_spec(self, requirements: str, design: str, feature_description: str) -> str:
+        """Generate architecture diagram from spec documents"""
+        system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
+        
+        Based on the provided requirements and design documents, generate a Mermaid graph diagram that shows:
+        - System architecture described in design
+        - Components and modules mentioned
+        - Layer separation and boundaries
+        - External dependencies and integrations
+        
+        Return ONLY the Mermaid diagram code, starting with 'graph TB' and properly formatted."""
+        
+        prompt = f"""Generate an architecture diagram based on these specification documents:
+
+Feature Description:
+{feature_description}
+
+Requirements:
+{requirements}
+
+Design:
+{design}
+
+Focus on:
+1. System components from design document
+2. Architectural layers and boundaries
+3. External integrations mentioned in requirements
+4. Module relationships and dependencies"""
+        
+        try:
+            diagram_code = self.ai_service.generate_text(prompt, system_prompt)
+            return self._clean_mermaid_code(diagram_code, "graph")
+        except Exception as e:
+            return self._generate_fallback_architecture_diagram({})
+    
+    def _generate_aws_architecture_from_spec(self, requirements: str, design: str, feature_description: str) -> str:
+        """Generate AWS architecture diagram from spec documents"""
+        # Check for AWS-related content in specs
+        aws_content = self._extract_aws_from_specs(requirements, design, feature_description)
+        
+        if self.aws_mcp_available and self.mcp_service and aws_content:
+            # Extract AWS components from spec content
+            components = self._extract_aws_components_from_specs(requirements, design, feature_description)
+            connections = []  # Will be inferred by MCP service
+            
+            # Generate diagram using MCP server
+            mcp_diagram = self.mcp_service.generate_aws_architecture_diagram(
+                components, connections, f"AWS Architecture for {feature_description[:50]}..."
+            )
+            
+            if mcp_diagram:
+                return mcp_diagram
+        
+        # Fallback to AI-generated AWS diagram
+        system_prompt = """You are OpenFlux, an AI assistant specialized in creating AWS architecture diagrams.
+        
+        Based on the provided requirements and design documents, generate a Mermaid graph diagram that shows:
+        - AWS services mentioned or implied in the design
+        - Cloud architecture for the described feature
+        - VPC boundaries and networking
+        - Security groups and access patterns
+        - AWS best practices and Well-Architected principles
+        
+        Use AWS official colors and draw.io-style icons. Return ONLY the Mermaid diagram code."""
+        
+        prompt = f"""Generate an AWS architecture diagram based on these specification documents:
+
+Feature Description:
+{feature_description}
+
+Requirements:
+{requirements}
+
+Design:
+{design}
+
+Focus on:
+1. AWS services needed for this feature
+2. Cloud infrastructure requirements
+3. Scalability and availability needs
+4. Security and networking requirements
+5. Data storage and processing needs
+
+Use proper AWS service icons and official AWS colors."""
+        
+        try:
+            diagram_code = self.ai_service.generate_text(prompt, system_prompt)
+            return self._enhance_aws_diagram_with_icons(diagram_code)
+        except Exception as e:
+            return self._generate_fallback_aws_architecture_diagram({})
+    
+    def _extract_aws_from_specs(self, requirements: str, design: str, feature_description: str) -> bool:
+        """Check if AWS services are mentioned in spec documents"""
+        combined_content = f"{requirements} {design} {feature_description}".lower()
+        aws_keywords = [
+            'aws', 'ec2', 's3', 'rds', 'lambda', 'api gateway', 'cloudfront',
+            'route53', 'iam', 'vpc', 'cloudwatch', 'sns', 'sqs', 'dynamodb',
+            'elasticache', 'elb', 'alb', 'nlb', 'ecs', 'eks', 'fargate', 'cloud'
+        ]
+        return any(keyword in combined_content for keyword in aws_keywords)
+    
+    def _extract_aws_components_from_specs(self, requirements: str, design: str, feature_description: str) -> List[str]:
+        """Extract AWS components mentioned in spec documents"""
+        combined_content = f"{requirements} {design} {feature_description}".lower()
+        
+        aws_services = []
+        service_keywords = {
+            'EC2': ['ec2', 'instance', 'server', 'compute'],
+            'S3': ['s3', 'storage', 'bucket', 'file'],
+            'RDS': ['rds', 'database', 'mysql', 'postgresql'],
+            'Lambda': ['lambda', 'function', 'serverless'],
+            'API Gateway': ['api gateway', 'api', 'rest'],
+            'CloudFront': ['cloudfront', 'cdn'],
+            'Route 53': ['route53', 'dns', 'domain'],
+            'VPC': ['vpc', 'network', 'subnet'],
+            'IAM': ['iam', 'authentication', 'authorization'],
+            'CloudWatch': ['cloudwatch', 'monitoring', 'logs'],
+            'SNS': ['sns', 'notification'],
+            'SQS': ['sqs', 'queue', 'message'],
+            'DynamoDB': ['dynamodb', 'nosql']
+        }
+        
+        for service, keywords in service_keywords.items():
+            if any(keyword in combined_content for keyword in keywords):
+                aws_services.append(service)
+        
+        # Add common services if none detected but cloud is mentioned
+        if not aws_services and 'cloud' in combined_content:
+            aws_services = ['EC2', 'S3', 'RDS', 'VPC', 'IAM']
+        
+        return aws_services

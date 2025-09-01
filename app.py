@@ -645,10 +645,43 @@ def show_diagrams():
         st.warning("⚠️ Please select and connect to an AI model first from the sidebar.")
         return
     
-    # Check if codebase is loaded
-    if not st.session_state.loaded_files:
-        st.warning("⚠️ Please load a project folder first in 'Folder Analysis'.")
+    # Check if codebase is loaded OR if we have completed spec content
+    has_codebase = bool(st.session_state.loaded_files)
+    has_spec = hasattr(st.session_state, 'completed_spec') and st.session_state.completed_spec
+    
+    if not has_codebase and not has_spec:
+        st.warning("⚠️ Please either load a project folder in 'Folder Analysis' or complete a spec in 'Spec Generation'.")
         return
+    
+    # Determine content source
+    if has_spec:
+        content_source = "spec"
+        st.info("📋 Using content from completed spec documents")
+        
+        # Show spec content summary
+        spec_content = st.session_state.completed_spec
+        with st.expander("📄 Spec Content Summary"):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write("**Feature:**", spec_content.get('feature_description', 'Not available')[:100] + "...")
+                st.write("**Requirements:**", "✅ Available" if spec_content.get('requirements') else "❌ Missing")
+            with col2:
+                st.write("**Design:**", "✅ Available" if spec_content.get('design') else "❌ Missing")
+                st.write("**Tasks:**", "✅ Available" if spec_content.get('tasks') else "❌ Missing")
+    else:
+        content_source = "codebase"
+        st.info("📁 Using content from loaded project folder")
+        
+        # Show codebase summary
+        with st.expander("📁 Codebase Summary"):
+            file_count = len(st.session_state.loaded_files)
+            st.write(f"**Files loaded:** {file_count}")
+            if file_count > 0:
+                file_types = {}
+                for file_path in st.session_state.loaded_files.keys():
+                    ext = file_path.split('.')[-1] if '.' in file_path else 'no extension'
+                    file_types[ext] = file_types.get(ext, 0) + 1
+                st.write("**File types:**", ", ".join([f"{ext} ({count})" for ext, count in file_types.items()]))
     
     # Initialize diagram generator with MCP service
     if 'diagram_generator' not in st.session_state:
@@ -710,7 +743,9 @@ def show_diagrams():
     
     # Auto-detection if requested
     if selected_type == "auto" and user_input:
-        detected_type = st.session_state.diagram_generator.detect_diagram_type(user_input, st.session_state.loaded_files)
+        # Use appropriate content for detection
+        detection_content = st.session_state.loaded_files if has_codebase else None
+        detected_type = st.session_state.diagram_generator.detect_diagram_type(user_input, detection_content)
         st.info(f"🎯 Detected diagram type: **{diagram_types.get(detected_type, detected_type)}**")
         actual_type = detected_type
     else:
@@ -722,11 +757,18 @@ def show_diagrams():
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        include_analysis = st.checkbox(
-            "Include codebase analysis",
-            value=True,
-            help="Use existing codebase analysis to inform diagram generation"
-        )
+        if content_source == "spec":
+            include_analysis = st.checkbox(
+                "Include spec context",
+                value=True,
+                help="Use requirements and design documents to inform diagram generation"
+            )
+        else:
+            include_analysis = st.checkbox(
+                "Include codebase analysis",
+                value=True,
+                help="Use existing codebase analysis to inform diagram generation"
+            )
     
     with col2:
         use_mcp_server = st.checkbox(
@@ -747,15 +789,29 @@ def show_diagrams():
     if st.button("🚀 Generate Diagram", type="primary"):
         with st.spinner(f"🧠 Generating {diagram_types.get(actual_type, actual_type)}..."):
             try:
-                # Prepare analysis context
-                analysis_context = None
-                if include_analysis and hasattr(st.session_state, 'codebase_analysis'):
-                    analysis_context = st.session_state.codebase_analysis
+                # Prepare content and analysis context
+                if content_source == "spec":
+                    # Create synthetic codebase from spec content
+                    spec_content = st.session_state.completed_spec
+                    synthetic_codebase = {
+                        "requirements.md": spec_content.get('requirements', ''),
+                        "design.md": spec_content.get('design', ''),
+                        "tasks.md": spec_content.get('tasks', ''),
+                        "feature_description.txt": spec_content.get('feature_description', '')
+                    }
+                    content_to_use = synthetic_codebase
+                    analysis_context = {"source": "spec", "feature": spec_content.get('feature_description', '')}
+                else:
+                    # Use loaded codebase
+                    content_to_use = st.session_state.loaded_files
+                    analysis_context = None
+                    if include_analysis and hasattr(st.session_state, 'codebase_analysis'):
+                        analysis_context = st.session_state.codebase_analysis
                 
                 # Generate diagram
                 diagram_code = st.session_state.diagram_generator.generate_diagram_by_type(
                     actual_type, 
-                    st.session_state.loaded_files, 
+                    content_to_use, 
                     analysis_context
                 )
                 
@@ -763,7 +819,8 @@ def show_diagrams():
                     st.session_state.generated_diagram = {
                         'code': diagram_code,
                         'type': actual_type,
-                        'timestamp': st.session_state.ai_service.get_timestamp()
+                        'timestamp': st.session_state.ai_service.get_timestamp(),
+                        'source': content_source
                     }
                     st.success("✅ Diagram generated successfully!")
                 else:
@@ -777,7 +834,8 @@ def show_diagrams():
         diagram_data = st.session_state.generated_diagram
         
         st.markdown("---")
-        st.subheader(f"📊 Generated {diagram_types.get(diagram_data['type'], diagram_data['type'])}")
+        source_info = f" (from {diagram_data.get('source', 'codebase')})" if 'source' in diagram_data else ""
+        st.subheader(f"📊 Generated {diagram_types.get(diagram_data['type'], diagram_data['type'])}{source_info}")
         
         # Tabs for different views
         tab1, tab2, tab3 = st.tabs(["🖼️ Visual", "📝 Mermaid Code", "📥 Export"])
