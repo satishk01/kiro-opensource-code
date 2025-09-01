@@ -1,0 +1,21 @@
+graph TB
+    subgraph "Presentation Layer"
+        UI[User Interface]
+        API[API Endpoints]
+    end
+    
+    subgraph "Business Layer"
+        SVC[Services]
+        BL[Business Logic]
+    end
+    
+    subgraph "Data Layer"
+        DB[Database]
+        EXT[External APIs]
+    end
+    
+    UI --> API
+    API --> SVC
+    SVC --> BL
+    BL --> DB
+    BL --> EXT

@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant User
+    participant API as API Layer
+    participant Service as Service Layer
+    participant DB as Database
+    
+    User->>+API: HTTP Request
+    API->>+Service: Process Request
+    Service->>+DB: Query Data
+    DB-->>-Service: Return Data
+    Service-->>-API: Processed Response
+    API-->>-User: HTTP Response

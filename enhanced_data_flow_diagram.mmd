@@ -1,0 +1,9 @@
+flowchart TD
+    A[User Input] --> B[API Gateway]
+    B --> C[Authentication Service]
+    C --> D[Business Logic]
+    D --> E[Data Layer]
+    E --> F[Database]
+    D --> G[External APIs]
+    B --> H[Response Handler]
+    H --> I[User Interface]

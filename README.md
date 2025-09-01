@@ -93,36 +93,6 @@ The EC2 instance needs the following permissions:
 
 See `deploy/iam-policy.json` for the complete policy.
 
-### MCP Server Configuration
-
-For enhanced AWS diagram generation, install UV and UVX:
-
-```bash
-# Install UV (Python package manager)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# UVX is included with UV
-# The AWS diagram MCP server will be auto-configured
-```
-
-The MCP configuration is automatically created at `.openflux/settings/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "awslabs.aws-diagram-mcp-server": {
-      "command": "uvx",
-      "args": ["awslabs.aws-diagram-mcp-server"],
-      "env": {
-        "FASTMCP_LOG_LEVEL": "ERROR"
-      },
-      "autoApprove": [],
-      "disabled": false
-    }
-  }
-}
-```
-
 ## Usage
 
 ### 1. Model Selection
@@ -157,10 +127,7 @@ The MCP configuration is automatically created at `.openflux/settings/mcp.json`:
 ### 6. Diagram Generation
 - Generate ER diagrams from data models
 - Create data flow diagrams from code analysis
-- Generate AWS architecture diagrams using MCP server
-- Create sequence diagrams for API interactions
-- Generate class diagrams for object-oriented code
-- Export diagrams in Mermaid and HTML formats
+- Export diagrams in various formats
 
 ## Architecture
 
@@ -188,10 +155,7 @@ The MCP configuration is automatically created at `.openflux/settings/mcp.json`:
 │                 │    │                 │
 │  - Ticket Mgmt  │    │  - ER Diagrams  │
 │  - Status Track │    │  - Data Flow    │
-│  - Bulk Create  │    │  - AWS Arch     │
-│                 │    │  - Sequence     │
-│                 │    │  - Class        │
-│                 │    │  - MCP Server   │
+│  - Bulk Create  │    │  - Mermaid      │
 └─────────────────┘    └─────────────────┘
 ```
 

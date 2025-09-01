@@ -10,9 +10,12 @@ from services.mcp_service import MCPService
 class DiagramGenerator:
     """Generate various types of diagrams from codebase analysis"""
     
-    def __init__(self, ai_service: AIService):
+    def __init__(self, ai_service: AIService, mcp_service: Optional[MCPService] = None):
         self.ai_service = ai_service
-        self.mcp_service = MCPService()
+        self.mcp_service = mcp_service or MCPService()
+        
+        # Initialize AWS MCP server connection
+        self.aws_mcp_available = self.mcp_service.initialize_aws_diagram_server()
     
     def generate_er_diagram(self, codebase: Dict, analysis: Dict = None) -> str:
         """Generate Entity-Relationship diagram from codebase"""
@@ -151,140 +154,96 @@ Focus on:
         except Exception as e:
             return self._generate_fallback_class_diagram(class_files)
     
-    def generate_aws_architecture_diagram(self, codebase: Dict, analysis: Dict = None) -> str:
-        """Generate AWS architecture diagram using MCP server"""
-        try:
-<<<<<<< HEAD
-<<<<<<< HEAD
-            is_spec_content = analysis and analysis.get('source') == 'specification'
-            
-<<<<<<< HEAD
-            # For basic AWS Architecture, use AI-based generation
-            if not use_mcp_server:
-                return self._generate_basic_aws_architecture(codebase, is_spec_content)
-            
-            # For AWS Architecture with AWS Components, use AWS Labs MCP server
-            # Extract AWS components from codebase or spec first
-=======
-=======
->>>>>>> parent of b0b6632 (diagrams gen1)
-=======
->>>>>>> parent of b0b6632 (diagrams gen1)
-            # Initialize MCP service if not already done
-            if not self.mcp_service.initialize_aws_diagram_server():
-                return self._generate_fallback_aws_architecture(codebase)
-            
-<<<<<<< HEAD
-<<<<<<< HEAD
-            # Extract AWS components from codebase or spec
->>>>>>> parent of a07020b (diagram gen 2)
-            if is_spec_content:
-                # For spec content, use AI to extract AWS components from requirements and design
-                components = self._ai_extract_aws_components_from_spec(codebase)
-=======
-            # Extract AWS components from codebase
-            components = self.mcp_service.extract_aws_components_from_codebase(codebase)
-            connections = self.mcp_service.extract_connections_from_codebase(codebase, components)
-=======
-            # Extract AWS components from codebase
-            components = self.mcp_service.extract_aws_components_from_codebase(codebase)
-            connections = self.mcp_service.extract_connections_from_codebase(codebase, components)
-            
-            if not components:
-                # Use AI to identify potential AWS components
-                components = self._ai_extract_aws_components(codebase)
-                connections = self._ai_extract_aws_connections(codebase, components)
->>>>>>> parent of b0b6632 (diagrams gen1)
-            
-            if not components:
-                # Use AI to identify potential AWS components
-                components = self._ai_extract_aws_components(codebase)
->>>>>>> parent of b0b6632 (diagrams gen1)
-                connections = self._ai_extract_aws_connections(codebase, components)
-            
-<<<<<<< HEAD
-            # Ensure we have some components to work with
-            if not components:
-                components = ["EC2", "RDS", "S3", "API Gateway", "Lambda", "CloudFront"]
-                connections = [
-                    {"from": "CloudFront", "to": "S3", "type": "serves", "description": "Serves static content"},
-                    {"from": "API Gateway", "to": "Lambda", "type": "triggers", "description": "Triggers serverless functions"},
-                    {"from": "Lambda", "to": "RDS", "type": "queries", "description": "Queries database"},
-                    {"from": "EC2", "to": "RDS", "type": "connects", "description": "Database connections"}
-                ]
-            
-            # Try to initialize and use AWS Labs MCP server
-            mcp_available = self.mcp_service.initialize_aws_diagram_server()
-            
-            if mcp_available:
-                # Generate diagram using AWS Labs MCP server
-                title = "Enhanced AWS Architecture from Specification" if is_spec_content else "Enhanced AWS Architecture"
-                diagram = self.mcp_service.generate_aws_architecture_diagram(
-                    components=components,
-                    connections=connections,
-                    title=title
-                )
-                
-                if diagram and len(diagram.strip()) > 50:  # Ensure we got a substantial diagram
-                    return diagram
-            
-            # Fallback to our enhanced diagram generation
-            return self._generate_enhanced_fallback_aws_architecture(codebase, is_spec_content)
-=======
-            # Generate diagram using MCP server
-            diagram = self.mcp_service.generate_aws_architecture_diagram(
-                components=components,
-                connections=connections,
-                title="AWS Architecture"
-            )
-            
-<<<<<<< HEAD
-<<<<<<< HEAD
-            return diagram if diagram else self._generate_fallback_aws_architecture(codebase, is_spec_content)
->>>>>>> parent of a07020b (diagram gen 2)
-=======
-            return diagram if diagram else self._generate_fallback_aws_architecture(codebase)
->>>>>>> parent of b0b6632 (diagrams gen1)
-=======
-            return diagram if diagram else self._generate_fallback_aws_architecture(codebase)
->>>>>>> parent of b0b6632 (diagrams gen1)
-            
-        except Exception as e:
-            return self._generate_fallback_aws_architecture(codebase)
-    
     def generate_sequence_diagram(self, codebase: Dict, analysis: Dict = None) -> str:
-        """Generate sequence diagram showing interactions"""
+        """Generate sequence diagram showing interactions over time"""
         system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
         
         Analyze the provided codebase and generate a Mermaid sequence diagram that shows:
-        - User interactions with the system
-        - API call flows
-        - Service-to-service communications
-        - Database interactions
+        - Interactions between objects/components over time
+        - Method calls and message passing
+        - Synchronous and asynchronous operations
+        - Return values and responses
         
         Return ONLY the Mermaid diagram code, starting with 'sequenceDiagram' and properly formatted."""
         
-        # Extract API and service interactions
-        interactions = self._extract_interactions_from_codebase(codebase)
+        # Extract interaction patterns from API and service files
+        api_files = self._extract_api_files(codebase)
+        service_files = self._extract_service_files(codebase)
         
         prompt = f"""Generate a sequence diagram for this codebase:
 
-{json.dumps(codebase, indent=2)[:3000]}...
+API files:
+{json.dumps(api_files, indent=2)}
+
+Service files:
+{json.dumps(service_files, indent=2)}
 
 Focus on:
-1. User-system interactions
-2. API request/response flows
-3. Service communications
-4. Database operations
-5. External API calls"""
+1. Request/response flows
+2. Service method calls
+3. Database interactions
+4. External API calls
+5. Error handling flows"""
         
         try:
             diagram_code = self.ai_service.generate_text(prompt, system_prompt)
             return self._clean_mermaid_code(diagram_code, "sequenceDiagram")
         except Exception as e:
-            return self._generate_fallback_sequence_diagram(interactions)
+            return self._generate_fallback_sequence_diagram(api_files, service_files)
     
-    # Helper methods for file extraction
+    def generate_aws_architecture_diagram(self, codebase: Dict, analysis: Dict = None) -> str:
+        """Generate AWS architecture diagram with proper AWS components"""
+        if self.aws_mcp_available and self.mcp_service:
+            # Use AWS MCP server for enhanced diagram generation
+            components = self.mcp_service.extract_aws_components_from_codebase(codebase)
+            connections = self.mcp_service.extract_connections_from_codebase(codebase, components)
+            
+            # Generate diagram using MCP server
+            mcp_diagram = self.mcp_service.generate_aws_architecture_diagram(
+                components, connections, "AWS Architecture"
+            )
+            
+            if mcp_diagram:
+                return mcp_diagram
+        
+        # Fallback to AI-generated AWS diagram
+        system_prompt = """You are OpenFlux, an AI assistant specialized in creating AWS architecture diagrams.
+        
+        Analyze the provided codebase and generate a Mermaid graph diagram that shows:
+        - AWS services and components with proper icons
+        - VPC boundaries and networking
+        - Security groups and access patterns
+        - Data flow between services
+        - AWS best practices and Well-Architected principles
+        
+        Use AWS official colors and draw.io-style icons. Return ONLY the Mermaid diagram code."""
+        
+        # Extract AWS-related content
+        aws_content = self._extract_aws_content(codebase)
+        
+        prompt = f"""Generate an AWS architecture diagram for this codebase:
+
+AWS-related content:
+{json.dumps(aws_content, indent=2)}
+
+Full codebase context:
+{json.dumps(codebase, indent=2)[:3000]}...
+
+Focus on:
+1. AWS services used (EC2, S3, RDS, Lambda, etc.)
+2. Network architecture (VPC, subnets, security groups)
+3. Data flow and connections
+4. Security boundaries
+5. Monitoring and logging services
+
+Use proper AWS service icons and official AWS colors."""
+        
+        try:
+            diagram_code = self.ai_service.generate_text(prompt, system_prompt)
+            return self._enhance_aws_diagram_with_icons(diagram_code)
+        except Exception as e:
+            return self._generate_fallback_aws_architecture_diagram(codebase)
+    
     def _extract_model_files(self, codebase: Dict) -> Dict:
         """Extract files that likely contain data models"""
         model_files = {}
@@ -366,502 +325,29 @@ Focus on:
         ]
         return any(re.search(pattern, content, re.IGNORECASE) for pattern in patterns)
     
-    # Enhanced Mermaid validation and cleaning methods
     def _clean_mermaid_code(self, raw_code: str, diagram_type: str) -> str:
-        """Clean and validate Mermaid diagram code for consistency"""
-        if not raw_code or not raw_code.strip():
-            return f"{diagram_type}\n    %% No content generated"
-        
-        # Remove any markdown code blocks
+        """Clean and validate Mermaid diagram code"""
+        # Remove markdown code blocks if present
         cleaned = re.sub(r'```mermaid\n?', '', raw_code)
         cleaned = re.sub(r'```\n?', '', cleaned)
         
-        # Split into lines for processing
-        lines = cleaned.strip().split('\n')
-        cleaned_lines = []
-        
-        # Ensure it starts with the correct diagram type
-        if not lines[0].strip().startswith(diagram_type):
-            cleaned_lines.append(diagram_type)
-        
-        # Process each line
-        for line in lines:
-            line = line.strip()
-            if line:
-                # Fix common Mermaid syntax issues
-                line = self._fix_mermaid_syntax(line)
-                cleaned_lines.append(line)
-        
-        # Validate the final diagram
-        result = '\n'.join(cleaned_lines)
-        return self._validate_mermaid_diagram(result, diagram_type)
-    
-    def _fix_mermaid_syntax(self, line: str) -> str:
-        """Fix common Mermaid syntax issues"""
-        # Fix node ID issues - ensure IDs are valid
-        line = re.sub(r'[^\w\-\[\](){}":;,\s<>|&%/\\.]', '', line)
-        
-        # Fix arrow syntax
-        line = re.sub(r'-->', '-->', line)  # Ensure consistent arrow syntax
-        line = re.sub(r'->', '-->', line)   # Convert single arrows to double
-        
-        # Fix subgraph syntax
-        if line.strip().startswith('subgraph'):
-            # Ensure subgraph has proper quotes if needed
-            if '"' not in line and '[' not in line and len(line.split()) > 1:
-                parts = line.split(' ', 1)
-                if len(parts) > 1:
-                    line = f'{parts[0]} "{parts[1]}"'
-        
-        # Fix node definitions with special characters
-        if '[' in line and ']' in line:
-            # Ensure node labels are properly formatted
-            line = re.sub(r'\[([^]]*)\]', lambda m: f'[{m.group(1)}]', line)
-        
-        return line
-    
-    def _validate_mermaid_diagram(self, diagram: str, diagram_type: str) -> str:
-        """Validate and fix Mermaid diagram structure"""
-        lines = diagram.split('\n')
-        validated_lines = []
-        
-        # Track if we have the diagram type declaration
-        has_diagram_type = False
+        # Basic validation and cleanup
+        lines = cleaned.split('\n')
+        valid_lines = []
         
         for line in lines:
             line = line.strip()
-            if not line:
-                continue
-            
-            # Check for diagram type
-            if line.startswith(diagram_type):
-                has_diagram_type = True
-                validated_lines.append(line)
-                continue
-            
-            # Skip invalid lines that might break rendering
-            if self._is_valid_mermaid_line(line):
-                validated_lines.append(line)
+            if line and not line.startswith('#'):  # Remove comments
+                valid_lines.append(line)
         
-        # Ensure we have diagram type
-        if not has_diagram_type:
-            validated_lines.insert(0, diagram_type)
+        # Ensure diagram starts with correct type
+        if valid_lines and not valid_lines[0].strip().startswith(diagram_type):
+            valid_lines.insert(0, diagram_type)
+        elif not valid_lines:
+            valid_lines = [diagram_type]
         
-        # Add fallback content if diagram is too minimal
-        if len(validated_lines) < 3:
-            return self._generate_minimal_fallback(diagram_type)
-        
-        return '\n'.join(validated_lines)
+        return '\n'.join(valid_lines)
     
-    def _is_valid_mermaid_line(self, line: str) -> bool:
-        """Check if a line is valid Mermaid syntax"""
-        if not line.strip():
-            return False
-        
-        # Allow comments
-        if line.strip().startswith('%%'):
-            return True
-        
-        # Allow subgraphs
-        if line.strip().startswith('subgraph'):
-            return True
-        
-        # Allow end statements
-        if line.strip() == 'end':
-            return True
-        
-        # Allow classDef statements
-        if line.strip().startswith('classDef'):
-            return True
-        
-        # Allow class assignments
-        if line.strip().startswith('class '):
-            return True
-        
-        # Allow node definitions and connections
-        valid_patterns = [
-            r'^\s*\w+\[.*\]',  # Node definitions
-            r'^\s*\w+\s*-->\s*\w+',  # Connections
-            r'^\s*\w+\s*->>.*\w+',  # Sequence diagram arrows
-            r'^\s*participant\s+\w+',  # Sequence participants
-            r'^\s*class\s+\w+',  # Class definitions
-            r'^\s*\w+\s*:\s*.*',  # ER diagram attributes
-        ]
-        
-        return any(re.match(pattern, line) for pattern in valid_patterns)
-    
-    def _generate_minimal_fallback(self, diagram_type: str) -> str:
-        """Generate minimal fallback diagram"""
-        fallbacks = {
-            'graph': """graph TB
-    A[Start] --> B[Process]
-    B --> C[End]""",
-            'sequenceDiagram': """sequenceDiagram
-    participant User
-    participant System
-    User->>System: Request
-    System-->>User: Response""",
-            'erDiagram': """erDiagram
-    USER {
-        int id
-        string name
-    }""",
-            'classDiagram': """classDiagram
-    class User {
-        +String name
-        +getId()
-    }"""
-        }
-        return fallbacks.get(diagram_type, f"{diagram_type}\n    A --> B")
-    
-    # AWS-specific methods
-    def _generate_basic_aws_architecture(self, codebase: Dict, is_spec_content: bool = False) -> str:
-        """Generate basic AWS architecture diagram using AI"""
-        if is_spec_content:
-            system_prompt = """You are OpenFlux, an AI assistant specialized in AWS architecture diagrams.
-            
-            Analyze the provided specification content and generate a clean, basic AWS architecture diagram using Mermaid.
-            Focus on high-level AWS services and their relationships based on the requirements and design.
-            
-            Return ONLY the Mermaid diagram code, starting with 'graph TB' and properly formatted."""
-            
-            prompt = f"""Generate a basic AWS architecture diagram from this specification:
-
-Specification content:
-{json.dumps(codebase, indent=2)}
-
-Create a simple, clean AWS architecture showing:
-1. Main AWS services needed based on requirements
-2. Basic service relationships
-3. User interaction points
-4. Data flow between services"""
-        else:
-            system_prompt = """You are OpenFlux, an AI assistant specialized in AWS architecture diagrams.
-            
-            Analyze the provided codebase and generate a clean, basic AWS architecture diagram using Mermaid.
-            Focus on identifying AWS services used and their relationships.
-            
-            Return ONLY the Mermaid diagram code, starting with 'graph TB' and properly formatted."""
-            
-            prompt = f"""Generate a basic AWS architecture diagram for this codebase:
-
-{json.dumps(codebase, indent=2)[:3000]}...
-
-Create a simple, clean AWS architecture showing:
-1. AWS services identified in the code
-2. Basic service relationships
-3. User interaction points
-4. Data flow between services"""
-        
-        try:
-            diagram_code = self.ai_service.generate_text(prompt, system_prompt)
-            return self._clean_mermaid_code(diagram_code, "graph")
-        except Exception as e:
-            return self._generate_fallback_aws_architecture(codebase, is_spec_content)
-    
-    def _generate_enhanced_fallback_aws_architecture(self, codebase: Dict, is_spec_content: bool = False) -> str:
-        """Generate enhanced fallback AWS architecture diagram with draw.io-style AWS icons"""
-        return self._generate_aws_diagram_with_drawio_icons(is_spec_content)
-    
-    def _generate_aws_diagram_with_drawio_icons(self, is_spec_content: bool = False) -> str:
-        """Generate AWS architecture diagram with draw.io-style icons and proper styling"""
-        if is_spec_content:
-            return """graph TB
-    %% AWS Architecture with Draw.io Style Icons - From Specification
-    subgraph "aws-cloud" ["☁️ AWS Cloud Infrastructure"]
-        subgraph "edge-layer" ["🌐 Edge & Content Delivery"]
-            R53["🌍 Route 53<br/>DNS Management"]
-            CF["📡 CloudFront<br/>Global CDN"]
-            WAF["🛡️ AWS WAF<br/>Web Application Firewall"]
-        end
-        
-        subgraph "frontend-layer" ["🖥️ Frontend & Static Assets"]
-            S3Web["📁 S3 Bucket<br/>Static Website Hosting"]
-            S3Assets["📦 S3 Bucket<br/>Static Assets"]
-        end
-        
-        subgraph "api-layer" ["🔌 API & Load Balancing"]
-            ALB["⚖️ Application<br/>Load Balancer"]
-            APIGW["🚪 API Gateway<br/>REST/HTTP API"]
-            APIGW2["🔗 API Gateway<br/>WebSocket API"]
-        end
-        
-        subgraph "compute-layer" ["💻 Compute Services"]
-            EC2["🖥️ EC2<br/>Auto Scaling Group"]
-            Lambda["⚡ Lambda<br/>Serverless Functions"]
-            ECS["🐳 ECS Fargate<br/>Containerized Apps"]
-            EKS["☸️ EKS<br/>Kubernetes Cluster"]
-        end
-        
-        subgraph "data-layer" ["💾 Data & Storage"]
-            RDS["🗄️ RDS<br/>Relational Database"]
-            Aurora["🌟 Aurora<br/>Serverless Database"]
-            DynamoDB["⚡ DynamoDB<br/>NoSQL Database"]
-            S3Data["🏗️ S3 Bucket<br/>Data Lake Storage"]
-            EFS["📂 EFS<br/>Elastic File System"]
-        end
-        
-        subgraph "cache-layer" ["🚀 Caching & Performance"]
-            ElastiCache["🚀 ElastiCache<br/>Redis/Memcached"]
-            DAX["⚡ DynamoDB<br/>Accelerator (DAX)"]
-        end
-        
-        subgraph "security-layer" ["🔐 Security & Identity"]
-            IAM["👤 IAM<br/>Identity & Access Management"]
-            Cognito["🔑 Cognito<br/>User Authentication"]
-            SecretsManager["🔒 Secrets Manager<br/>Credential Storage"]
-            KMS["🔐 AWS KMS<br/>Key Management Service"]
-        end
-        
-        subgraph "monitoring-layer" ["📊 Monitoring & Observability"]
-            CloudWatch["📈 CloudWatch<br/>Metrics & Logs"]
-            CloudTrail["🔍 CloudTrail<br/>API Audit Logging"]
-            XRay["🔬 X-Ray<br/>Distributed Tracing"]
-        end
-        
-        subgraph "integration-layer" ["🔗 Integration & Messaging"]
-            SQS["📬 SQS<br/>Message Queues"]
-            SNS["📢 SNS<br/>Push Notifications"]
-            EventBridge["🌉 EventBridge<br/>Event-Driven Architecture"]
-        end
-    end
-    
-    %% External Users and Connections
-    Users["👥 End Users"]
-    
-    %% Primary User Flow
-    Users --> R53
-    R53 --> CF
-    CF --> WAF
-    WAF --> S3Web
-    CF --> ALB
-    
-    %% API and Compute Flows
-    ALB --> EC2
-    ALB --> ECS
-    APIGW --> Lambda
-    APIGW2 --> Lambda
-    
-    %% Data Access Patterns
-    Lambda --> RDS
-    Lambda --> Aurora
-    Lambda --> DynamoDB
-    EC2 --> RDS
-    ECS --> Aurora
-    
-    %% Caching Patterns
-    Lambda --> ElastiCache
-    EC2 --> ElastiCache
-    DynamoDB --> DAX
-    
-    %% Storage Patterns
-    Lambda --> S3Data
-    EC2 --> S3Assets
-    ECS --> EFS
-    
-    %% Messaging Patterns
-    Lambda --> SQS
-    SQS --> SNS
-    Lambda --> EventBridge
-    
-    %% AWS Official Color Styling
-    classDef awsCompute fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
-    classDef awsStorage fill:#3F48CC,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
-    classDef awsDatabase fill:#C925D1,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
-    classDef awsNetwork fill:#FF4B4B,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
-    classDef awsSecurity fill:#DD344C,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
-    classDef awsMonitoring fill:#759C3E,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
-    classDef awsIntegration fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
-    classDef awsAnalytics fill:#8C4FFF,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
-    
-    %% Apply Styling to Services
-    class EC2,Lambda,ECS,EKS awsCompute
-    class S3Web,S3Assets,S3Data,EFS awsStorage
-    class RDS,Aurora,DynamoDB,ElastiCache,DAX awsDatabase
-    class R53,CF,ALB,APIGW,APIGW2,WAF awsNetwork
-    class IAM,Cognito,SecretsManager,KMS awsSecurity
-    class CloudWatch,CloudTrail,XRay awsMonitoring
-    class SQS,SNS,EventBridge awsIntegration"""
-        else:
-            return """graph TB
-    %% AWS Architecture with Draw.io Style Icons - From Codebase
-    subgraph "aws-cloud" ["☁️ AWS Cloud Infrastructure"]
-        subgraph "frontend-tier" ["🌐 Frontend & CDN"]
-            R53["🌍 Route 53<br/>DNS Service"]
-            CF["📡 CloudFront<br/>Content Delivery Network"]
-            S3Web["📁 S3 Bucket<br/>Static Website"]
-        end
-        
-        subgraph "application-tier" ["🔌 Application Layer"]
-            ALB["⚖️ Application<br/>Load Balancer"]
-            EC2ASG["🖥️ EC2<br/>Auto Scaling Group"]
-            Lambda["⚡ Lambda<br/>Serverless Functions"]
-            APIGW["🚪 API Gateway<br/>REST API"]
-        end
-        
-        subgraph "data-tier" ["💾 Data & Storage"]
-            RDS["🗄️ RDS<br/>Relational Database"]
-            DynamoDB["⚡ DynamoDB<br/>NoSQL Database"]
-            S3["📦 S3 Bucket<br/>Object Storage"]
-            ElastiCache["🚀 ElastiCache<br/>In-Memory Cache"]
-        end
-        
-        subgraph "security-tier" ["🔐 Security & Monitoring"]
-            IAM["👤 IAM<br/>Identity & Access Management"]
-            CloudWatch["📈 CloudWatch<br/>Monitoring & Logging"]
-            VPC["🏢 VPC<br/>Virtual Private Cloud"]
-        end
-        
-        subgraph "integration-tier" ["🔗 Integration Services"]
-            SQS["📬 SQS<br/>Message Queues"]
-            SNS["📢 SNS<br/>Notification Service"]
-        end
-    end
-    
-    %% External Users
-    Users["👥 Users"]
-    
-    %% Connection Flows
-    Users --> R53
-    R53 --> CF
-    CF --> S3Web
-    Users --> ALB
-    ALB --> EC2ASG
-    APIGW --> Lambda
-    Lambda --> RDS
-    Lambda --> DynamoDB
-    EC2ASG --> RDS
-    Lambda --> S3
-    EC2ASG --> ElastiCache
-    Lambda --> SQS
-    SQS --> SNS
-    
-    %% AWS Official Color Styling
-    classDef awsCompute fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
-    classDef awsStorage fill:#3F48CC,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
-    classDef awsDatabase fill:#C925D1,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
-    classDef awsNetwork fill:#FF4B4B,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
-    classDef awsSecurity fill:#DD344C,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
-    classDef awsIntegration fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff,font-weight:bold
-    
-    %% Apply Styling
-    class EC2ASG,Lambda awsCompute
-    class S3Web,S3 awsStorage
-    class RDS,DynamoDB,ElastiCache awsDatabase
-    class R53,CF,ALB,APIGW awsNetwork
-    class IAM,CloudWatch,VPC awsSecurity
-    class SQS,SNS awsIntegration"""
-    
-    # AI extraction methods for AWS components
-    def _ai_extract_aws_components(self, codebase: Dict) -> List[str]:
-        """Use AI to extract AWS components from codebase"""
-        system_prompt = """You are OpenFlux, an AI assistant specialized in AWS architecture analysis.
-        
-        Analyze the provided codebase and identify AWS services and components that are used or referenced.
-        Return a JSON list of AWS service names found in the code.
-        
-        Look for:
-        - AWS SDK calls
-        - Infrastructure as Code (CloudFormation, Terraform)
-        - Configuration files mentioning AWS services
-        - Import statements for AWS libraries
-        - Environment variables with AWS service names
-        
-        Return ONLY a JSON array of service names, like: ["EC2", "S3", "RDS", "Lambda"]"""
-        
-        prompt = f"""Identify AWS services in this codebase:
-
-{json.dumps(codebase, indent=2)[:4000]}...
-
-Return only the JSON array of AWS service names."""
-        
-        try:
-            response = self.ai_service.generate_text(prompt, system_prompt)
-            # Try to parse JSON response
-            import json
-            components = json.loads(response.strip())
-            return components if isinstance(components, list) else []
-        except:
-            # Fallback to common AWS services
-            return ["EC2", "S3", "RDS", "Lambda", "API Gateway"]
-    
-    def _ai_extract_aws_connections(self, codebase: Dict, components: List[str]) -> List[Dict]:
-        """Use AI to extract connections between AWS components"""
-        if not components:
-            return []
-        
-        system_prompt = """You are OpenFlux, an AI assistant specialized in AWS architecture analysis.
-        
-        Given a list of AWS components and codebase, identify likely connections between these components.
-        Return a JSON array of connection objects with 'from', 'to', 'type', and 'description' fields.
-        
-        Example format:
-        [
-            {"from": "API Gateway", "to": "Lambda", "type": "triggers", "description": "API calls trigger Lambda functions"},
-            {"from": "Lambda", "to": "RDS", "type": "queries", "description": "Lambda functions query database"}
-        ]"""
-        
-        prompt = f"""Identify connections between these AWS components: {components}
-
-Based on this codebase:
-{json.dumps(codebase, indent=2)[:3000]}...
-
-Return only the JSON array of connection objects."""
-        
-        try:
-            response = self.ai_service.generate_text(prompt, system_prompt)
-            connections = json.loads(response.strip())
-            return connections if isinstance(connections, list) else []
-        except:
-            # Generate basic connections
-            connections = []
-            for i, comp1 in enumerate(components):
-                for comp2 in components[i+1:]:
-                    connections.append({
-                        "from": comp1,
-                        "to": comp2,
-                        "type": "connects",
-                        "description": f"{comp1} connects to {comp2}"
-                    })
-            return connections[:5]  # Limit to 5 connections
-    
-    def _extract_interactions_from_codebase(self, codebase: Dict) -> List[Dict]:
-        """Extract interaction patterns from codebase for sequence diagrams"""
-        interactions = []
-        
-        # Look for API endpoints and their handlers
-        for file_path, content in codebase.items():
-            # Find API route definitions
-            api_patterns = [
-                r'@app\.route\([\'"]([^\'"]+)[\'"]',
-                r'@api\.route\([\'"]([^\'"]+)[\'"]',
-                r'app\.(get|post|put|delete)\([\'"]([^\'"]+)[\'"]',
-                r'router\.(get|post|put|delete)\([\'"]([^\'"]+)[\'"]'
-            ]
-            
-            for pattern in api_patterns:
-                matches = re.findall(pattern, content, re.IGNORECASE)
-                for match in matches:
-                    if isinstance(match, tuple):
-                        method = match[0] if len(match) > 1 else "request"
-                        endpoint = match[1] if len(match) > 1 else match[0]
-                    else:
-                        method = "request"
-                        endpoint = match
-                    
-                    interactions.append({
-                        "from": "Client",
-                        "to": "API",
-                        "message": f"{method.upper()} {endpoint}",
-                        "file": file_path
-                    })
-        
-        return interactions
-    
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    # Fallback diagram generators
     def _generate_fallback_er_diagram(self, model_files: Dict) -> str:
         """Generate a basic ER diagram when AI generation fails"""
         if not model_files:
@@ -935,63 +421,156 @@ Return only the JSON array of connection objects."""
     
     BaseClass <|-- DerivedClass"""
     
-=======
->>>>>>> parent of a07020b (diagram gen 2)
-    def _generate_fallback_aws_architecture(self, codebase: Dict, is_spec_content: bool = False) -> str:
-=======
-    def _generate_fallback_aws_architecture(self, codebase: Dict) -> str:
->>>>>>> parent of b0b6632 (diagrams gen1)
-=======
-    def _generate_fallback_aws_architecture(self, codebase: Dict) -> str:
->>>>>>> parent of b0b6632 (diagrams gen1)
-        """Generate fallback AWS architecture diagram"""
+    def _generate_fallback_sequence_diagram(self, api_files: Dict, service_files: Dict) -> str:
+        """Generate a basic sequence diagram when AI generation fails"""
+        return """sequenceDiagram
+    participant User
+    participant API as API Layer
+    participant Service as Service Layer
+    participant DB as Database
+    
+    User->>+API: HTTP Request
+    API->>+Service: Process Request
+    Service->>+DB: Query Data
+    DB-->>-Service: Return Data
+    Service-->>-API: Processed Response
+    API-->>-User: HTTP Response"""
+    
+    def _extract_aws_content(self, codebase: Dict) -> Dict:
+        """Extract AWS-related content from codebase"""
+        aws_content = {}
+        aws_keywords = [
+            'aws', 'ec2', 's3', 'rds', 'lambda', 'api gateway', 'cloudfront',
+            'route53', 'iam', 'vpc', 'cloudwatch', 'sns', 'sqs', 'dynamodb',
+            'elasticache', 'elb', 'alb', 'nlb', 'ecs', 'eks', 'fargate'
+        ]
+        
+        for file_path, content in codebase.items():
+            content_lower = content.lower()
+            if any(keyword in content_lower for keyword in aws_keywords):
+                aws_content[file_path] = content
+        
+        return aws_content
+    
+    def _enhance_aws_diagram_with_icons(self, diagram: str) -> str:
+        """Enhance AWS diagram with draw.io-style icons and AWS colors"""
+        if not diagram:
+            return diagram
+        
+        # AWS service icon mappings
+        aws_icons = {
+            'EC2': '🖥️', 'S3': '📁', 'RDS': '🗄️', 'Lambda': '⚡', 'API Gateway': '🚪',
+            'CloudFront': '📡', 'Route 53': '🌍', 'ALB': '⚖️', 'VPC': '🏢', 'IAM': '👤',
+            'CloudWatch': '📈', 'SNS': '📢', 'SQS': '📬', 'DynamoDB': '⚡', 'ElastiCache': '🚀',
+            'ECS': '🐳', 'EKS': '☸️', 'Aurora': '🌟', 'Cognito': '🔑', 'KMS': '🔐'
+        }
+        
+        enhanced_diagram = diagram
+        
+        # Add icons to service names
+        for service, icon in aws_icons.items():
+            service_pattern = rf'\b{re.escape(service)}\b'
+            enhanced_diagram = re.sub(
+                service_pattern,
+                f'{icon} {service}',
+                enhanced_diagram,
+                flags=re.IGNORECASE
+            )
+        
+        # Add AWS styling if not present
+        if "classDef aws" not in enhanced_diagram:
+            aws_styling = """
+    %% AWS Official Color Styling
+    classDef awsCompute fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef awsStorage fill:#3F48CC,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef awsDatabase fill:#C925D1,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef awsNetwork fill:#FF4B4B,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef awsSecurity fill:#DD344C,stroke:#232F3E,stroke-width:2px,color:#fff"""
+            enhanced_diagram += aws_styling
+        
+        return enhanced_diagram
+    
+    def _generate_fallback_aws_architecture_diagram(self, codebase: Dict) -> str:
+        """Generate fallback AWS architecture diagram when all else fails"""
         return """graph TB
     subgraph "AWS Cloud"
-        subgraph "Compute"
-            EC2[EC2 Instances]
-            Lambda[Lambda Functions]
+        subgraph "VPC"
+            subgraph "Public Subnet"
+                ALB["⚖️ Application Load Balancer"]
+                NAT["🌐 NAT Gateway"]
+            end
+            
+            subgraph "Private Subnet"
+                EC2["🖥️ EC2 Instances"]
+                RDS["🗄️ RDS Database"]
+            end
         end
         
-        subgraph "Storage"
-            S3[S3 Buckets]
-            RDS[RDS Database]
-        end
-        
-        subgraph "Networking"
-            ALB[Application Load Balancer]
-            API[API Gateway]
-        end
+        S3["📁 S3 Bucket"]
+        CF["📡 CloudFront"]
+        R53["🌍 Route 53"]
     end
     
-    User[Users] --> ALB
+    Users["👥 Users"] --> R53
+    R53 --> CF
+    CF --> ALB
     ALB --> EC2
-    API --> Lambda
-    Lambda --> RDS
+    EC2 --> RDS
     EC2 --> S3
-    Lambda --> S3"""
     
-    def _generate_fallback_sequence_diagram(self, interactions: List[Dict]) -> str:
-        """Generate fallback sequence diagram"""
-        if interactions:
-            diagram = "sequenceDiagram\n"
-            participants = set()
-            
-            # Extract participants
-            for interaction in interactions:
-                participants.add(interaction.get("from", "User"))
-                participants.add(interaction.get("to", "System"))
-            
-            # Add participants
-            for participant in participants:
-                diagram += f"    participant {participant}\n"
-            
-            # Add interactions
-            for interaction in interactions:
-                from_actor = interaction.get("from", "User")
-                to_actor = interaction.get("to", "System")
-                message = interaction.get("message", "Request")
-                diagram += f"    {from_actor}->>+{to_actor}: {message}\n"
-            
-            return diagram
-        else:
-            return "sequenceDiagram\n    participant User\n    participant API\n    participant Service\n    participant Database\n    User->>+API: HTTP Request\n    API->>+Service: Process Request\n    Service->>+Database: Query Data\n    Database-->>-Service: Return Data\n    Service-->>-API: Process Response\n    API-->>-User: HTTP Response"
+    %% AWS Styling
+    classDef awsCompute fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef awsStorage fill:#3F48CC,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef awsDatabase fill:#C925D1,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef awsNetwork fill:#FF4B4B,stroke:#232F3E,stroke-width:2px,color:#fff
+    
+    class EC2 awsCompute
+    class S3 awsStorage
+    class RDS awsDatabase
+    class ALB,CF,R53,NAT awsNetwork"""
+    
+    def detect_diagram_type(self, user_input: str, codebase: Dict = None) -> str:
+        """Automatically detect the most appropriate diagram type based on input"""
+        input_lower = user_input.lower()
+        
+        # AWS-specific keywords (highest priority)
+        aws_keywords = ['aws', 'ec2', 's3', 'rds', 'lambda', 'cloudfront', 'vpc', 'iam', 'bucket', 'instance']
+        if any(keyword in input_lower for keyword in aws_keywords):
+            return 'aws_architecture'
+        
+        # Sequence/interaction keywords (high priority for specific terms)
+        sequence_keywords = ['sequence', 'interaction', 'timeline', 'message', 'call', 'request', 'response', 'login', 'authentication flow']
+        if any(keyword in input_lower for keyword in sequence_keywords):
+            return 'sequence'
+        
+        # Class diagram keywords (check for OOP terms)
+        class_keywords = ['class', 'object', 'inheritance', 'method', 'attribute', 'interface', 'oop', 'polymorphism']
+        if any(keyword in input_lower for keyword in class_keywords):
+            return 'class'
+        
+        # Database/ER keywords (check for data modeling terms)
+        er_keywords = ['database', 'table', 'entity', 'relationship', 'schema', 'model', 'foreign key', 'primary key', 'er diagram']
+        if any(keyword in input_lower for keyword in er_keywords):
+            return 'er'
+        
+        # Data flow keywords (check for process terms)
+        flow_keywords = ['flow', 'process', 'data flow', 'pipeline', 'transformation', 'workflow']
+        if any(keyword in input_lower for keyword in flow_keywords):
+            return 'data_flow'
+        
+        # Default to architecture for general system terms
+        return 'architecture'
+    
+    def generate_diagram_by_type(self, diagram_type: str, codebase: Dict, analysis: Dict = None) -> str:
+        """Generate diagram based on specified type"""
+        generators = {
+            'er': self.generate_er_diagram,
+            'data_flow': self.generate_data_flow_diagram,
+            'class': self.generate_class_diagram,
+            'sequence': self.generate_sequence_diagram,
+            'architecture': self.generate_architecture_diagram,
+            'aws_architecture': self.generate_aws_architecture_diagram
+        }
+        
+        generator = generators.get(diagram_type, self.generate_architecture_diagram)
+        return generator(codebase, analysis)

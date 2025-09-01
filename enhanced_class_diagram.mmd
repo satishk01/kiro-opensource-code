@@ -1,0 +1,19 @@
+classDiagram
+    class User {
+        +int id
+        +string name
+        +string email
+        +datetime created_at
+        +save()
+        +delete()
+    }
+    
+    class Profile {
+        +int id
+        +int user_id
+        +string bio
+        +string avatar_url
+        +update_bio(new_bio)
+    }
+    
+    User ||--|| Profile : has

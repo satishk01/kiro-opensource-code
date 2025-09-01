@@ -16,7 +16,7 @@ class MCPService:
         self.aws_diagram_server = None
         
     def initialize_aws_diagram_server(self) -> bool:
-        """Initialize connection to AWS Labs MCP server"""
+        """Initialize connection to AWS Diagram MCP server"""
         try:
             # Test if uvx is available
             result = subprocess.run(
@@ -29,28 +29,28 @@ class MCPService:
                 self.logger.error("uvx not found. Please install uv and uvx first.")
                 return False
             
-            # Test if AWS Labs MCP server is available
+            # Test if AWS Diagram MCP server is available
             test_result = subprocess.run([
                 "uvx", 
-                "awslabs.aws-documentation-mcp-server@latest",
+                "awslabs.aws-diagram-mcp-server",
                 "--help"
             ], capture_output=True, text=True, timeout=15)
             
             if test_result.returncode == 0:
-                self.logger.info("AWS Labs MCP server initialized successfully")
+                self.logger.info("AWS Diagram MCP server initialized successfully")
                 return True
             else:
-                self.logger.warning("AWS Labs MCP server not available, will use fallback")
+                self.logger.warning("AWS Diagram MCP server not available, will use fallback")
                 return False
                 
         except subprocess.TimeoutExpired:
-            self.logger.error("Timeout initializing AWS Labs MCP server")
+            self.logger.error("Timeout initializing AWS Diagram MCP server")
             return False
         except FileNotFoundError:
             self.logger.error("uvx command not found. Please install uv and uvx first.")
             return False
         except Exception as e:
-            self.logger.error(f"Failed to initialize AWS Labs MCP server: {e}")
+            self.logger.error(f"Failed to initialize AWS Diagram MCP server: {e}")
             return False
     
     def generate_aws_architecture_diagram(self, 

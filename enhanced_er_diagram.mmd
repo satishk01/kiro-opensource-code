@@ -1,0 +1,16 @@
+erDiagram
+    USER {
+        id int PK
+        name string
+        email string
+        created_at datetime
+    }
+    
+    PROFILE {
+        id int PK
+        user_id int FK
+        bio text
+        avatar_url string
+    }
+    
+    USER ||--|| PROFILE : has

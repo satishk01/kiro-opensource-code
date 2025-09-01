@@ -1,0 +1,36 @@
+graph TB
+    subgraph "AWS Cloud"
+        subgraph "VPC"
+            subgraph "Public Subnet"
+                ALB["Application Load Balancer"]
+                NAT["NAT Gateway"]
+            end
+            
+            subgraph "Private Subnet"
+                EC2["EC2 Instances"]
+                RDS["RDS Database"]
+            end
+        end
+        
+        S3["S3 Bucket"]
+        CF["CloudFront"]
+        R53["Route 53"]
+    end
+    
+    Users["Users"] --> R53
+    R53 --> CF
+    CF --> ALB
+    ALB --> EC2
+    EC2 --> RDS
+    EC2 --> S3
+    
+    %% AWS Styling
+    classDef awsCompute fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef awsStorage fill:#3F48CC,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef awsDatabase fill:#C925D1,stroke:#232F3E,stroke-width:2px,color:#fff
+    classDef awsNetwork fill:#FF4B4B,stroke:#232F3E,stroke-width:2px,color:#fff
+    
+    class EC2 awsCompute
+    class S3 awsStorage
+    class RDS awsDatabase
+    class ALB,CF,R53,NAT awsNetwork

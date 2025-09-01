@@ -1,0 +1,28 @@
+{
+  "test_results": {
+    "diagram_type_detection": "13/13",
+    "fallback_diagrams_generated": 6,
+    "aws_components_extracted": 9,
+    "mermaid_cleaning_tests": "4/4"
+  },
+  "extracted_aws_components": [
+    "Database",
+    "User",
+    "Lambda",
+    "Function",
+    "RDS",
+    "MySQL",
+    "Bucket",
+    "S3",
+    "Instance"
+  ],
+  "generated_diagrams": [
+    "er",
+    "sequence",
+    "class",
+    "data_flow",
+    "architecture",
+    "aws_architecture"
+  ],
+  "test_timestamp": "2024-12-19"
+}
