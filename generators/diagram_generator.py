@@ -15,46 +15,21 @@ class DiagramGenerator:
         self.mcp_service = MCPService()
     
     def generate_er_diagram(self, codebase: Dict, analysis: Dict = None) -> str:
-        """Generate Entity-Relationship diagram from codebase or specification"""
-        is_spec_content = analysis and analysis.get('source') == 'specification'
+        """Generate Entity-Relationship diagram from codebase"""
+        system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
         
-        if is_spec_content:
-            system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
-            
-            Analyze the provided specification content (requirements, design, tasks) and generate a Mermaid ER diagram that shows:
-            - Database entities/models mentioned in the spec
-            - Relationships between entities
-            - Key attributes for each entity based on requirements
-            - Cardinality of relationships
-            
-            Return ONLY the Mermaid diagram code, starting with 'erDiagram' and properly formatted."""
-        else:
-            system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
-            
-            Analyze the provided codebase and generate a Mermaid ER diagram that shows:
-            - Database entities/models
-            - Relationships between entities
-            - Key attributes for each entity
-            - Cardinality of relationships
-            
-            Return ONLY the Mermaid diagram code, starting with 'erDiagram' and properly formatted."""
+        Analyze the provided codebase and generate a Mermaid ER diagram that shows:
+        - Database entities/models
+        - Relationships between entities
+        - Key attributes for each entity
+        - Cardinality of relationships
+        
+        Return ONLY the Mermaid diagram code, starting with 'erDiagram' and properly formatted."""
         
         # Extract model-related files
         model_files = self._extract_model_files(codebase)
         
-        if is_spec_content:
-            prompt = f"""Generate an ER diagram from this specification:
-
-Specification content:
-{json.dumps(codebase, indent=2)}
-
-Focus on identifying from the spec:
-1. Data entities mentioned in requirements and design
-2. Relationships described in the specification
-3. Attributes and properties defined in requirements
-4. Database schema implied by the design"""
-        else:
-            prompt = f"""Generate an ER diagram for this codebase:
+        prompt = f"""Generate an ER diagram for this codebase:
 
 Model files:
 {json.dumps(model_files, indent=2)}
@@ -115,41 +90,17 @@ Focus on:
     
     def generate_architecture_diagram(self, codebase: Dict, analysis: Dict = None) -> str:
         """Generate system architecture diagram"""
-        is_spec_content = analysis and analysis.get('source') == 'specification'
+        system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
         
-        if is_spec_content:
-            system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
-            
-            Analyze the provided specification content and generate a Mermaid graph that shows:
-            - System architecture components described in the design
-            - Component relationships from requirements
-            - Layer separation mentioned in the specification
-            - External dependencies and integrations
-            
-            Return ONLY the Mermaid diagram code, starting with 'graph TB' and properly formatted."""
-            
-            prompt = f"""Generate an architecture diagram from this specification:
-
-Specification content:
-{json.dumps(codebase, indent=2)}
-
-Focus on:
-1. System components described in the design document
-2. Architecture patterns mentioned in requirements
-3. Component interactions from the specification
-4. External systems and integrations described"""
-        else:
-            system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
-            
-            Analyze the provided codebase and generate a Mermaid graph that shows:
-            - System architecture components
-            - Module dependencies
-            - Layer separation (presentation, business, data)
-            - External dependencies
-            
-            Return ONLY the Mermaid diagram code, starting with 'graph TB' and properly formatted."""
-            
-            prompt = f"""Generate an architecture diagram for this codebase:
+        Analyze the provided codebase and generate a Mermaid graph that shows:
+        - System architecture components
+        - Module dependencies
+        - Layer separation (presentation, business, data)
+        - External dependencies
+        
+        Return ONLY the Mermaid diagram code, starting with 'graph TB' and properly formatted."""
+        
+        prompt = f"""Generate an architecture diagram for this codebase:
 
 {json.dumps(codebase, indent=2)[:4000]}...
 
@@ -203,6 +154,7 @@ Focus on:
     def generate_aws_architecture_diagram(self, codebase: Dict, analysis: Dict = None) -> str:
         """Generate AWS architecture diagram using MCP server"""
         try:
+<<<<<<< HEAD
             is_spec_content = analysis and analysis.get('source') == 'specification'
             
 <<<<<<< HEAD
@@ -213,24 +165,28 @@ Focus on:
             # For AWS Architecture with AWS Components, use AWS Labs MCP server
             # Extract AWS components from codebase or spec first
 =======
+=======
+>>>>>>> parent of b0b6632 (diagrams gen1)
             # Initialize MCP service if not already done
             if not self.mcp_service.initialize_aws_diagram_server():
-                return self._generate_fallback_aws_architecture(codebase, is_spec_content)
+                return self._generate_fallback_aws_architecture(codebase)
             
+<<<<<<< HEAD
             # Extract AWS components from codebase or spec
 >>>>>>> parent of a07020b (diagram gen 2)
             if is_spec_content:
                 # For spec content, use AI to extract AWS components from requirements and design
                 components = self._ai_extract_aws_components_from_spec(codebase)
+=======
+            # Extract AWS components from codebase
+            components = self.mcp_service.extract_aws_components_from_codebase(codebase)
+            connections = self.mcp_service.extract_connections_from_codebase(codebase, components)
+            
+            if not components:
+                # Use AI to identify potential AWS components
+                components = self._ai_extract_aws_components(codebase)
+>>>>>>> parent of b0b6632 (diagrams gen1)
                 connections = self._ai_extract_aws_connections(codebase, components)
-            else:
-                components = self.mcp_service.extract_aws_components_from_codebase(codebase)
-                connections = self.mcp_service.extract_connections_from_codebase(codebase, components)
-                
-                if not components:
-                    # Use AI to identify potential AWS components
-                    components = self._ai_extract_aws_components(codebase)
-                    connections = self._ai_extract_aws_connections(codebase, components)
             
 <<<<<<< HEAD
             # Ensure we have some components to work with
@@ -262,59 +218,38 @@ Focus on:
             return self._generate_enhanced_fallback_aws_architecture(codebase, is_spec_content)
 =======
             # Generate diagram using MCP server
-            title = "AWS Architecture from Specification" if is_spec_content else "AWS Architecture"
             diagram = self.mcp_service.generate_aws_architecture_diagram(
                 components=components,
                 connections=connections,
-                title=title
+                title="AWS Architecture"
             )
             
+<<<<<<< HEAD
             return diagram if diagram else self._generate_fallback_aws_architecture(codebase, is_spec_content)
 >>>>>>> parent of a07020b (diagram gen 2)
+=======
+            return diagram if diagram else self._generate_fallback_aws_architecture(codebase)
+>>>>>>> parent of b0b6632 (diagrams gen1)
             
         except Exception as e:
-            return self._generate_fallback_aws_architecture(codebase, is_spec_content)
+            return self._generate_fallback_aws_architecture(codebase)
     
     def generate_sequence_diagram(self, codebase: Dict, analysis: Dict = None) -> str:
         """Generate sequence diagram showing interactions"""
-        is_spec_content = analysis and analysis.get('source') == 'specification'
+        system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
         
-        if is_spec_content:
-            system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
-            
-            Analyze the provided specification content and generate a Mermaid sequence diagram that shows:
-            - User interactions described in requirements
-            - System workflows from the design
-            - Component interactions mentioned in the spec
-            - Process flows described in tasks
-            
-            Return ONLY the Mermaid diagram code, starting with 'sequenceDiagram' and properly formatted."""
-            
-            prompt = f"""Generate a sequence diagram from this specification:
-
-Specification content:
-{json.dumps(codebase, indent=2)}
-
-Focus on:
-1. User workflows described in requirements
-2. System interactions from the design
-3. Process flows mentioned in tasks
-4. Component communications described in the spec"""
-        else:
-            system_prompt = """You are OpenFlux, an AI assistant specialized in creating technical diagrams.
-            
-            Analyze the provided codebase and generate a Mermaid sequence diagram that shows:
-            - User interactions with the system
-            - API call flows
-            - Service-to-service communications
-            - Database interactions
-            
-            Return ONLY the Mermaid diagram code, starting with 'sequenceDiagram' and properly formatted."""
-            
-            # Extract API and service interactions
-            interactions = self._extract_interactions_from_codebase(codebase)
-            
-            prompt = f"""Generate a sequence diagram for this codebase:
+        Analyze the provided codebase and generate a Mermaid sequence diagram that shows:
+        - User interactions with the system
+        - API call flows
+        - Service-to-service communications
+        - Database interactions
+        
+        Return ONLY the Mermaid diagram code, starting with 'sequenceDiagram' and properly formatted."""
+        
+        # Extract API and service interactions
+        interactions = self._extract_interactions_from_codebase(codebase)
+        
+        prompt = f"""Generate a sequence diagram for this codebase:
 
 {json.dumps(codebase, indent=2)[:3000]}...
 
@@ -832,41 +767,6 @@ Return only the JSON array of AWS service names."""
             # Fallback to common AWS services
             return ["EC2", "S3", "RDS", "Lambda", "API Gateway"]
     
-    def _ai_extract_aws_components_from_spec(self, spec_content: Dict) -> List[str]:
-        """Use AI to extract AWS components from specification content"""
-        system_prompt = """You are OpenFlux, an AI assistant specialized in AWS architecture analysis.
-        
-        Analyze the provided specification content (requirements, design, tasks) and identify AWS services and components that should be used based on the requirements and design.
-        Return a JSON list of AWS service names that would be appropriate for this system.
-        
-        Look for:
-        - Infrastructure requirements mentioned in the spec
-        - Scalability and performance requirements
-        - Storage and database needs
-        - API and web service requirements
-        - Security and compliance needs
-        - Integration requirements
-        
-        Return ONLY a JSON array of service names, like: ["EC2", "S3", "RDS", "Lambda", "API Gateway"]"""
-        
-        prompt = f"""Identify appropriate AWS services for this specification:
-
-Specification content:
-{json.dumps(spec_content, indent=2)}
-
-Based on the requirements and design, suggest AWS services that would be needed.
-Return only the JSON array of AWS service names."""
-        
-        try:
-            response = self.ai_service.generate_text(prompt, system_prompt)
-            # Try to parse JSON response
-            import json
-            components = json.loads(response.strip())
-            return components if isinstance(components, list) else []
-        except:
-            # Fallback based on common web application patterns
-            return ["EC2", "RDS", "S3", "API Gateway", "Lambda", "CloudFront"]
-    
     def _ai_extract_aws_connections(self, codebase: Dict, components: List[str]) -> List[Dict]:
         """Use AI to extract connections between AWS components"""
         if not components:
@@ -940,6 +840,7 @@ Return only the JSON array of connection objects."""
         
         return interactions
     
+<<<<<<< HEAD
 <<<<<<< HEAD
     # Fallback diagram generators
     def _generate_fallback_er_diagram(self, model_files: Dict) -> str:
@@ -1018,51 +919,11 @@ Return only the JSON array of connection objects."""
 =======
 >>>>>>> parent of a07020b (diagram gen 2)
     def _generate_fallback_aws_architecture(self, codebase: Dict, is_spec_content: bool = False) -> str:
+=======
+    def _generate_fallback_aws_architecture(self, codebase: Dict) -> str:
+>>>>>>> parent of b0b6632 (diagrams gen1)
         """Generate fallback AWS architecture diagram"""
-        if is_spec_content:
-            return """graph TB
-    subgraph "AWS Cloud Architecture"
-        subgraph "Frontend Layer"
-            CF[CloudFront CDN]
-            S3Web[S3 Static Website]
-        end
-        
-        subgraph "API Layer"
-            ALB[Application Load Balancer]
-            API[API Gateway]
-            Lambda[Lambda Functions]
-        end
-        
-        subgraph "Application Layer"
-            EC2[EC2 Instances]
-            ECS[ECS Containers]
-        end
-        
-        subgraph "Data Layer"
-            RDS[RDS Database]
-            S3[S3 Storage]
-            Cache[ElastiCache]
-        end
-        
-        subgraph "Security & Monitoring"
-            IAM[IAM Roles]
-            CW[CloudWatch]
-        end
-    end
-    
-    Users[End Users] --> CF
-    CF --> S3Web
-    Users --> ALB
-    ALB --> EC2
-    Users --> API
-    API --> Lambda
-    Lambda --> RDS
-    EC2 --> RDS
-    Lambda --> S3
-    EC2 --> S3
-    EC2 --> Cache"""
-        else:
-            return """graph TB
+        return """graph TB
     subgraph "AWS Cloud"
         subgraph "Compute"
             EC2[EC2 Instances]
