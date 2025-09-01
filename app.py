@@ -638,12 +638,37 @@ This design document outlines the technical approach for implementing the featur
 
 def show_diagrams():
     st.title("📊 Diagrams")
-    st.markdown("Generate various types of diagrams from your codebase analysis")
+    st.markdown("Generate various types of diagrams from your spec or codebase analysis")
     
-    # Check if we have analyzed files
-    if 'analyzed_files' not in st.session_state or not st.session_state.analyzed_files:
-        st.warning("⚠️ No analyzed files found. Please go to 'Folder Analysis' first to analyze your codebase.")
+    # Check for available data sources
+    has_analyzed_files = 'analyzed_files' in st.session_state and st.session_state.analyzed_files
+    has_spec_data = (
+        (hasattr(st.session_state, 'completed_spec') and st.session_state.completed_spec) or
+        (hasattr(st.session_state, 'spec_workflow_state') and st.session_state.spec_workflow_state.get('requirements_content'))
+    )
+    
+    if not has_analyzed_files and not has_spec_data:
+        st.warning("⚠️ No data source found. Please either:")
+        st.markdown("- Go to 'Folder Analysis' to analyze your codebase, OR")
+        st.markdown("- Go to 'Spec Generation' to create a specification")
         return
+    
+    # Data source selection
+    data_sources = []
+    if has_spec_data:
+        data_sources.append("Specification Content")
+    if has_analyzed_files:
+        data_sources.append("Analyzed Codebase")
+    
+    if len(data_sources) > 1:
+        selected_source = st.selectbox(
+            "📋 Select Data Source:",
+            options=data_sources,
+            help="Choose whether to generate diagrams from your spec or analyzed codebase"
+        )
+    else:
+        selected_source = data_sources[0]
+        st.info(f"📋 Using data source: **{selected_source}**")
     
     # Initialize services
     if 'ai_service' not in st.session_state:
@@ -675,8 +700,40 @@ def show_diagrams():
     if st.button(f"🎨 Generate {selected_type}", type="primary"):
         with st.spinner(f"Generating {selected_type.lower()}..."):
             try:
-                codebase = st.session_state.analyzed_files
-                analysis = st.session_state.get('analysis_results', {})
+                # Prepare data based on selected source
+                if selected_source == "Specification Content":
+                    # Get spec content
+                    spec_content = {}
+                    analysis = {}
+                    
+                    if hasattr(st.session_state, 'completed_spec') and st.session_state.completed_spec:
+                        completed_spec = st.session_state.completed_spec
+                        spec_content = {
+                            'requirements.md': completed_spec.get('requirements', ''),
+                            'design.md': completed_spec.get('design', ''),
+                            'tasks.md': completed_spec.get('tasks', '')
+                        }
+                    elif hasattr(st.session_state, 'spec_workflow_state') and st.session_state.spec_workflow_state:
+                        workflow_state = st.session_state.spec_workflow_state
+                        spec_content = {
+                            'requirements.md': workflow_state.get('requirements_content', ''),
+                            'design.md': workflow_state.get('design_content', ''),
+                            'tasks.md': workflow_state.get('tasks_content', '')
+                        }
+                    
+                    # Filter out empty content
+                    spec_content = {k: v for k, v in spec_content.items() if v.strip()}
+                    
+                    if not spec_content:
+                        st.error("❌ No specification content found. Please create a spec first.")
+                        return
+                    
+                    codebase = spec_content
+                    analysis = {'source': 'specification', 'type': 'spec_content'}
+                    
+                else:  # Analyzed Codebase
+                    codebase = st.session_state.analyzed_files
+                    analysis = st.session_state.get('analysis_results', {})
                 
                 # Generate the selected diagram type
                 if selected_type == "ER Diagram":
@@ -695,10 +752,11 @@ def show_diagrams():
                 # Store the generated diagram
                 st.session_state.current_diagram = {
                     'type': selected_type,
-                    'code': diagram_code
+                    'code': diagram_code,
+                    'source': selected_source
                 }
                 
-                st.success(f"✅ {selected_type} generated successfully!")
+                st.success(f"✅ {selected_type} generated successfully from {selected_source.lower()}!")
                 
             except Exception as e:
                 st.error(f"❌ Error generating diagram: {str(e)}")
@@ -708,6 +766,10 @@ def show_diagrams():
         diagram = st.session_state.current_diagram
         
         st.subheader(f"📊 {diagram['type']}")
+        
+        # Show data source info
+        source_info = diagram.get('source', 'Unknown')
+        st.info(f"📋 Generated from: **{source_info}**")
         
         # Display the Mermaid diagram
         try:
@@ -797,8 +859,10 @@ def show_diagrams():
         - **Sequence Diagram**: Time-ordered interactions between components
         
         **Tips:**
-        - Ensure your codebase is analyzed first in 'Folder Analysis'
-        - AWS diagrams work best with cloud-native applications
+        - Generate diagrams from either your specification or analyzed codebase
+        - Spec-based diagrams focus on planned architecture and requirements
+        - Codebase diagrams show actual implementation structure
+        - AWS diagrams work best with cloud-native applications or specs
         - Sequence diagrams are great for API-heavy applications
         - All diagrams are generated in Mermaid format for easy sharing
         """)
