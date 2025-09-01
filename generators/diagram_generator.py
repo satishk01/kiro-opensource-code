@@ -201,13 +201,19 @@ Focus on:
             return self._generate_fallback_class_diagram(class_files)
     
     def generate_aws_architecture_diagram(self, codebase: Dict, analysis: Dict = None) -> str:
-        """Generate AWS architecture diagram using MCP server"""
+        """Generate AWS architecture diagram with optional MCP server enhancement"""
         try:
             is_spec_content = analysis and analysis.get('source') == 'specification'
+            use_mcp_server = analysis and analysis.get('use_mcp_server', False)
             
+            # For basic AWS Architecture, use AI-based generation
+            if not use_mcp_server:
+                return self._generate_basic_aws_architecture(codebase, is_spec_content)
+            
+            # For AWS Architecture with AWS Components, use MCP server
             # Initialize MCP service if not already done
             if not self.mcp_service.initialize_aws_diagram_server():
-                return self._generate_fallback_aws_architecture(codebase, is_spec_content)
+                return self._generate_enhanced_fallback_aws_architecture(codebase, is_spec_content)
             
             # Extract AWS components from codebase or spec
             if is_spec_content:
@@ -224,17 +230,17 @@ Focus on:
                     connections = self._ai_extract_aws_connections(codebase, components)
             
             # Generate diagram using MCP server
-            title = "AWS Architecture from Specification" if is_spec_content else "AWS Architecture"
+            title = "Enhanced AWS Architecture from Specification" if is_spec_content else "Enhanced AWS Architecture"
             diagram = self.mcp_service.generate_aws_architecture_diagram(
                 components=components,
                 connections=connections,
                 title=title
             )
             
-            return diagram if diagram else self._generate_fallback_aws_architecture(codebase, is_spec_content)
+            return diagram if diagram else self._generate_enhanced_fallback_aws_architecture(codebase, is_spec_content)
             
         except Exception as e:
-            return self._generate_fallback_aws_architecture(codebase, is_spec_content)
+            return self._generate_enhanced_fallback_aws_architecture(codebase, is_spec_content)
     
     def generate_sequence_diagram(self, codebase: Dict, analysis: Dict = None) -> str:
         """Generate sequence diagram showing interactions"""
@@ -607,6 +613,50 @@ Return only the JSON array of connection objects."""
         
         return interactions
     
+    def _generate_basic_aws_architecture(self, codebase: Dict, is_spec_content: bool = False) -> str:
+        """Generate basic AWS architecture diagram using AI"""
+        if is_spec_content:
+            system_prompt = """You are OpenFlux, an AI assistant specialized in AWS architecture diagrams.
+            
+            Analyze the provided specification content and generate a clean, basic AWS architecture diagram using Mermaid.
+            Focus on high-level AWS services and their relationships based on the requirements and design.
+            
+            Return ONLY the Mermaid diagram code, starting with 'graph TB' and properly formatted."""
+            
+            prompt = f"""Generate a basic AWS architecture diagram from this specification:
+
+Specification content:
+{json.dumps(codebase, indent=2)}
+
+Create a simple, clean AWS architecture showing:
+1. Main AWS services needed based on requirements
+2. Basic service relationships
+3. User interaction points
+4. Data flow between services"""
+        else:
+            system_prompt = """You are OpenFlux, an AI assistant specialized in AWS architecture diagrams.
+            
+            Analyze the provided codebase and generate a clean, basic AWS architecture diagram using Mermaid.
+            Focus on identifying AWS services used and their relationships.
+            
+            Return ONLY the Mermaid diagram code, starting with 'graph TB' and properly formatted."""
+            
+            prompt = f"""Generate a basic AWS architecture diagram for this codebase:
+
+{json.dumps(codebase, indent=2)[:3000]}...
+
+Create a simple, clean AWS architecture showing:
+1. AWS services identified in the code
+2. Basic service relationships
+3. User interaction points
+4. Data flow between services"""
+        
+        try:
+            diagram_code = self.ai_service.generate_text(prompt, system_prompt)
+            return self._clean_mermaid_code(diagram_code, "graph")
+        except Exception as e:
+            return self._generate_fallback_aws_architecture(codebase, is_spec_content)
+    
     def _generate_fallback_aws_architecture(self, codebase: Dict, is_spec_content: bool = False) -> str:
         """Generate fallback AWS architecture diagram"""
         if is_spec_content:
@@ -676,6 +726,133 @@ Return only the JSON array of connection objects."""
     Lambda --> RDS
     EC2 --> S3
     Lambda --> S3"""
+    
+    def _generate_enhanced_fallback_aws_architecture(self, codebase: Dict, is_spec_content: bool = False) -> str:
+        """Generate enhanced fallback AWS architecture diagram with detailed components"""
+        if is_spec_content:
+            return """graph TB
+    subgraph "AWS Cloud - Enhanced Architecture"
+        subgraph "Edge & CDN"
+            CF[CloudFront Distribution]
+            R53[Route 53 DNS]
+            WAF[AWS WAF]
+        end
+        
+        subgraph "Frontend Hosting"
+            S3Web[S3 Static Website]
+            S3Assets[S3 Assets Bucket]
+        end
+        
+        subgraph "Load Balancing & API"
+            ALB[Application Load Balancer]
+            NLB[Network Load Balancer]
+            APIGW[API Gateway]
+            APIGW2[API Gateway v2]
+        end
+        
+        subgraph "Compute Services"
+            EC2[EC2 Auto Scaling Group]
+            Lambda[Lambda Functions]
+            ECS[ECS Fargate]
+            EKS[EKS Cluster]
+        end
+        
+        subgraph "Database & Storage"
+            RDS[RDS Multi-AZ]
+            Aurora[Aurora Serverless]
+            DynamoDB[DynamoDB Tables]
+            S3Data[S3 Data Lake]
+            EFS[EFS File System]
+        end
+        
+        subgraph "Caching & Performance"
+            ElastiCache[ElastiCache Redis]
+            DAX[DynamoDB Accelerator]
+        end
+        
+        subgraph "Security & Identity"
+            IAM[IAM Roles & Policies]
+            Cognito[Cognito User Pools]
+            SecretsManager[Secrets Manager]
+            KMS[AWS KMS]
+        end
+        
+        subgraph "Monitoring & Logging"
+            CloudWatch[CloudWatch Metrics]
+            CloudTrail[CloudTrail Logs]
+            XRay[X-Ray Tracing]
+        end
+        
+        subgraph "Integration & Messaging"
+            SQS[SQS Queues]
+            SNS[SNS Topics]
+            EventBridge[EventBridge]
+        end
+    end
+    
+    Users[End Users] --> R53
+    R53 --> CF
+    CF --> WAF
+    WAF --> S3Web
+    CF --> ALB
+    ALB --> EC2
+    ALB --> ECS
+    APIGW --> Lambda
+    Lambda --> RDS
+    Lambda --> DynamoDB
+    EC2 --> ElastiCache
+    Lambda --> S3Data
+    EC2 --> Aurora
+    Lambda --> SQS
+    SQS --> SNS"""
+        else:
+            return """graph TB
+    subgraph "AWS Cloud - Enhanced Architecture"
+        subgraph "Frontend & CDN"
+            CF[CloudFront]
+            S3Web[S3 Website]
+            R53[Route 53]
+        end
+        
+        subgraph "Application Tier"
+            ALB[Application Load Balancer]
+            EC2ASG[EC2 Auto Scaling]
+            Lambda[Lambda Functions]
+            APIGW[API Gateway]
+        end
+        
+        subgraph "Data & Storage"
+            RDS[RDS Database]
+            DynamoDB[DynamoDB]
+            S3[S3 Buckets]
+            ElastiCache[ElastiCache]
+        end
+        
+        subgraph "Security & Monitoring"
+            IAM[IAM]
+            CloudWatch[CloudWatch]
+            VPC[VPC & Subnets]
+        end
+        
+        subgraph "Integration"
+            SQS[SQS]
+            SNS[SNS]
+        end
+    end
+    
+    Users --> R53
+    R53 --> CF
+    CF --> S3Web
+    Users --> ALB
+    ALB --> EC2ASG
+    APIGW --> Lambda
+    Lambda --> RDS
+    Lambda --> DynamoDB
+    EC2ASG --> RDS
+    Lambda --> S3
+    EC2ASG --> ElastiCache
+    Lambda --> SQS
+    SQS --> SNS"""
     
     def _generate_fallback_sequence_diagram(self, interactions: List[Dict]) -> str:
         """Generate fallback sequence diagram"""
