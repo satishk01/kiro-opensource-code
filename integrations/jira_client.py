@@ -160,7 +160,7 @@ class JiraClient:
             return None
     
     def create_tickets_from_tasks(self, tasks_markdown: str, issue_type: str = "Task") -> List[Dict]:
-        """Create JIRA tickets from Kiro tasks markdown"""
+        """Create JIRA tickets from OpenFlux tasks markdown"""
         try:
             tickets_created = []
             
@@ -174,7 +174,7 @@ class JiraClient:
                     description=task["description"],
                     issue_type=issue_type,
                     priority=task.get("priority", "Medium"),
-                    labels=["kiro-generated", "implementation"]
+                    labels=["openflux-generated", "implementation"]
                 )
                 
                 if ticket:
@@ -190,7 +190,7 @@ class JiraClient:
             return []
     
     def parse_tasks_from_markdown(self, markdown: str) -> List[Dict]:
-        """Parse tasks from Kiro markdown format"""
+        """Parse tasks from OpenFlux markdown format"""
         tasks = []
         current_task = None
         

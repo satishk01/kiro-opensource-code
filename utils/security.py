@@ -1,5 +1,5 @@
 """
-Security utilities for the Kiro Streamlit app
+Security utilities for the OpenFlux Streamlit app
 """
 import os
 import re

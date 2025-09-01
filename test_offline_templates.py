@@ -42,7 +42,7 @@ def test_template_generation():
         template_data = []
         
         for i, task in enumerate(parsed_tasks, 1):
-            labels = ["kiro-generated", "implementation"] if add_labels else []
+            labels = ["openflux-generated", "implementation"] if add_labels else []
             
             ticket_data = {
                 "summary": task["title"],
@@ -138,7 +138,7 @@ def test_template_generation():
         sample_tasks,
         "Task",
         "Medium", 
-        "KIRO",
+        "OPENFLUX",
         True
     )
     
@@ -155,14 +155,14 @@ def test_template_generation():
     json_data = json.loads(templates['json'])
     assert "issues" in json_data, "JSON should have 'issues' key"
     assert len(json_data["issues"]) == 2, "Should have 2 issues in JSON"
-    assert json_data["issues"][0]["fields"]["project"]["key"] == "KIRO", "Project key incorrect"
+    assert json_data["issues"][0]["fields"]["project"]["key"] == "OPENFLUX", "Project key incorrect"
     print("✅ JSON template format is correct")
     
     # Test Markdown format
     md_content = templates['markdown']
     assert "# JIRA Ticket Templates" in md_content, "Markdown title missing"
     assert "## Ticket 1:" in md_content, "Ticket sections missing"
-    assert "**Project:** KIRO" in md_content, "Project info missing"
+    assert "**Project:** OPENFLUX" in md_content, "Project info missing"
     print("✅ Markdown template format is correct")
     
     print("\n📄 Sample CSV Template:")

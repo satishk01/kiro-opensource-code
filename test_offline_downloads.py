@@ -36,7 +36,7 @@ def test_offline_download_options():
         "23+ JIRA fields for Excel import",
         "JIRA REST API ready format",
         "Human-readable documentation",
-        "Kiro-compatible tasks format"
+        "OpenFlux-compatible tasks format"
     ]
     
     print(f"\\n✅ Expected help descriptions:")
@@ -73,7 +73,7 @@ def test_ui_consistency():
         "CSV (Production JIRA)",
         "JSON (API ready)", 
         "Markdown (Human readable)",
-        "Tasks.md (Kiro format)"
+        "Tasks.md (OpenFlux format)"
     ]
     
     print("✅ Consistent formats across online/offline modes:")
@@ -109,10 +109,10 @@ def simulate_offline_workflow():
         "   - Production CSV (23+ fields)",
         "   - API JSON (REST API ready)",
         "   - Production Markdown (documentation)",
-        "   - Tasks.md (Kiro format)",
+        "   - Tasks.md (OpenFlux format)",
         "7. Preview any format",
         "8. Download selected format(s)",
-        "9. Import into JIRA or continue in Kiro"
+        "9. Import into JIRA or continue in OpenFlux"
     ]
     
     print("✅ Complete offline workflow:")
@@ -134,7 +134,7 @@ if __name__ == "__main__":
         print("  📊 Production CSV - 23+ JIRA fields for Excel")
         print("  🔗 API JSON - Ready for JIRA REST API bulk import")
         print("  📝 Production Markdown - Human-readable documentation")
-        print("  ✅ Tasks.md - Kiro-compatible format for continued development")
+        print("  ✅ Tasks.md - OpenFlux-compatible format for continued development")
         print("  👀 Preview - All formats with inline download")
         print("  📥 Quick Downloads - All formats available instantly")
         
@@ -142,7 +142,7 @@ if __name__ == "__main__":
         print("  - Teams without direct JIRA access")
         print("  - Bulk ticket preparation")
         print("  - Review and approval workflows")
-        print("  - Continued development in Kiro")
+        print("  - Continued development in OpenFlux")
         print("  - Documentation and planning")
     
     exit(0 if all([success1, success2, success3, success4]) else 1)

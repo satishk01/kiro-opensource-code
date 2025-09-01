@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Test script for task generation in Kiro markdown format
+Test script for task generation in OpenFlux markdown format
 """
 
 def test_task_format():
-    """Test the expected Kiro task format"""
-    print("🧪 Testing Kiro task format...")
+    """Test the expected OpenFlux task format"""
+    print("🧪 Testing OpenFlux task format...")
     
     # Sample task generation prompt response
     sample_tasks = """# Implementation Plan
@@ -36,7 +36,7 @@ def test_task_format():
     - Add model availability checking and validation
     - _Requirements: 1.2, 4.4_"""
 
-    print("✅ Sample Kiro task format:")
+    print("✅ Sample OpenFlux task format:")
     print(sample_tasks)
     
     # Verify format characteristics
@@ -59,7 +59,7 @@ def test_task_format():
     print("✅ Contains implementation details")
     
     print("\n🎯 Task format validation passed!")
-    print("The generated tasks will now be in proper Kiro markdown format instead of JSON.")
+    print("The generated tasks will now be in proper OpenFlux markdown format instead of JSON.")
     
     return True
 

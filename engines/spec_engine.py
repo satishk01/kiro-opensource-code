@@ -11,10 +11,10 @@ class SpecEngine:
         self.ai_service = ai_service
         self.logger = logging.getLogger(__name__)
         
-        # Kiro system prompt for consistent behavior
-        self.kiro_system_prompt = """You are Kiro, an AI assistant and IDE built to assist developers.
+        # OpenFlux system prompt for consistent behavior
+        self.openflux_system_prompt = """You are OpenFlux, an AI assistant and IDE built to assist developers.
 
-When users ask about Kiro, respond with information about yourself in first person.
+When users ask about OpenFlux, respond with information about yourself in first person.
 
 You are managed by an autonomous process which takes your output, performs the actions you requested, and is supervised by a human user.
 
@@ -24,8 +24,8 @@ You talk like a human, not like a bot. You reflect the user's input style in you
 - We are knowledgeable. We are not instructive. In order to inspire confidence in the programmers we partner with, we've got to bring our expertise and show we know our Java from our JavaScript. But we show up on their level and speak their language, though never in a way that's condescending or off-putting.
 - Speak like a dev — when necessary. Look to be more relatable and digestible in moments where we don't need to rely on technical language or specific vocabulary to get across a point.
 - Be decisive, precise, and clear. Lose the fluff when you can.
-- We are supportive, not authoritative. Coding is hard work, we get it. That's why our tone is also grounded in compassion and understanding so every programmer feels welcome and comfortable using Kiro.
-- Use positive, optimistic language that keeps Kiro feeling like a solutions-oriented space.
+- We are supportive, not authoritative. Coding is hard work, we get it. That's why our tone is also grounded in compassion and understanding so every programmer feels welcome and comfortable using OpenFlux.
+- Use positive, optimistic language that keeps OpenFlux feeling like a solutions-oriented space.
 - Stay warm and friendly as much as possible. We're not a cold tech company; we're a companionable partner, who always welcomes you and sometimes cracks a joke or two.
 - Be concise and direct in your responses
 - Don't repeat yourself, saying the same message over and over, or similar messages is not always helpful, and can look you're confused.
@@ -82,7 +82,7 @@ Focus on:
 Make the requirements specific, testable, and implementable."""
 
         try:
-            return self.ai_service.generate_text(requirements_prompt, self.kiro_system_prompt)
+            return self.ai_service.generate_text(requirements_prompt, self.openflux_system_prompt)
         except Exception as e:
             self.logger.error(f"Requirements generation failed: {e}")
             raise e
@@ -146,7 +146,7 @@ Focus on:
 - Technical implementation details"""
 
         try:
-            return self.ai_service.generate_text(design_prompt, self.kiro_system_prompt)
+            return self.ai_service.generate_text(design_prompt, self.openflux_system_prompt)
         except Exception as e:
             self.logger.error(f"Design generation failed: {e}")
             raise e
@@ -209,7 +209,7 @@ Avoid:
 Each task should be concrete enough that a developer can execute it without additional clarification."""
 
         try:
-            response = self.ai_service.generate_text(tasks_prompt, self.kiro_system_prompt)
+            response = self.ai_service.generate_text(tasks_prompt, self.openflux_system_prompt)
             return response
                 
         except Exception as e:

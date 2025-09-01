@@ -24,7 +24,7 @@ def test_production_jira_complete():
         {
             "number": "2", 
             "title": "Implement JIRA integration with production-grade templates",
-            "description": "• Build comprehensive JIRA client with full field support\n• Generate production-ready templates in multiple formats\n• Add tasks.md format for Kiro compatibility\n• Include advanced configuration options",
+            "description": "• Build comprehensive JIRA client with full field support\n• Generate production-ready templates in multiple formats\n• Add tasks.md format for OpenFlux compatibility\n• Include advanced configuration options",
             "subtasks": [
                 {"number": "2.1", "title": "Create JIRA client with comprehensive field mapping"},
                 {"number": "2.2", "title": "Implement template generation for all formats"},
@@ -41,12 +41,12 @@ def test_production_jira_complete():
     import csv
     from io import StringIO
     
-    def generate_production_templates(parsed_tasks, issue_type="Story", priority="High", project_key="KIRO", add_labels=True, assignee="john.doe", epic_link="KIRO-100", story_points="", components="Backend,API", fix_versions="v1.0.0", affects_versions="v0.9.0"):
+    def generate_production_templates(parsed_tasks, issue_type="Story", priority="High", project_key="OPENFLUX", add_labels=True, assignee="john.doe", epic_link="OPENFLUX-100", story_points="", components="Backend,API", fix_versions="v1.0.0", affects_versions="v0.9.0"):
         """Generate production-grade JIRA templates"""
         template_data = []
         
         for i, task in enumerate(parsed_tasks, 1):
-            labels = ["kiro-generated", "implementation"] if add_labels else []
+            labels = ["openflux-generated", "implementation"] if add_labels else []
             estimated_points = len(task.get("subtasks", [])) + 2 if not story_points else int(story_points)
             
             ticket_data = {
@@ -59,7 +59,7 @@ def test_production_jira_complete():
                 
                 # Assignment and ownership
                 "assignee": assignee,
-                "reporter": "kiro-ai-assistant",
+                "reporter": "openflux-ai-assistant",
                 
                 # Planning fields
                 "story_points": estimated_points,
@@ -79,7 +79,7 @@ def test_production_jira_complete():
                 "environment": "Development",
                 "due_date": (datetime.now() + timedelta(days=estimated_points * 2)).strftime("%Y-%m-%d"),
                 
-                # Kiro-specific fields
+                # OpenFlux-specific fields
                 "requirements": task.get("requirements", []),
                 "subtasks": [st["title"] for st in task.get("subtasks", [])],
                 "acceptance_criteria": [
@@ -94,16 +94,16 @@ def test_production_jira_complete():
                 "resolution": "",
                 
                 # Additional metadata
-                "created_by": "Kiro AI Assistant",
+                "created_by": "OpenFlux AI Assistant",
                 "creation_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "task_number": task.get("number", str(i))
             }
             
             template_data.append(ticket_data)
         
-        # Generate Tasks.md format (Kiro-style)
+        # Generate Tasks.md format (OpenFlux-style)
         tasks_md_content = "# Implementation Tasks (JIRA Export)\\n\\n"
-        tasks_md_content += f"Generated from Kiro on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\\n\\n"
+        tasks_md_content += f"Generated from OpenFlux on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\\n\\n"
         
         for i, ticket in enumerate(template_data, 1):
             # Main task checkbox
@@ -247,7 +247,7 @@ def test_production_jira_complete():
     assert "customfield_10016" in first_ticket["fields"], "Should have story points custom field"
     print("✅ JSON API format validated")
     
-    # Test Tasks.md format (Kiro compatible)
+    # Test Tasks.md format (OpenFlux compatible)
     tasks_md_content = templates['tasks_md']
     assert "# Implementation Tasks (JIRA Export)" in tasks_md_content, "Tasks.md title missing"
     assert "- [ ] 1." in tasks_md_content, "Task checkboxes missing"
@@ -256,7 +256,7 @@ def test_production_jira_complete():
     assert "**Story Points:**" in tasks_md_content, "Story points missing"
     assert "_Requirements:" in tasks_md_content, "Requirements references missing"
     assert "**Acceptance Criteria:**" in tasks_md_content, "Acceptance criteria missing"
-    print("✅ Tasks.md format validated (Kiro compatible)")
+    print("✅ Tasks.md format validated (OpenFlux compatible)")
     
     # Test production field coverage
     expected_production_fields = [
@@ -285,7 +285,7 @@ def test_ui_format_options():
         "CSV (Production JIRA)",
         "JSON (API ready)", 
         "Markdown (Human readable)",
-        "Tasks.md (Kiro format)"
+        "Tasks.md (OpenFlux format)"
     ]
     
     print(f"✅ Expected UI formats: {len(expected_formats)}")
@@ -305,7 +305,7 @@ if __name__ == "__main__":
         print("  📊 Production CSV - 23+ JIRA fields for Excel import")
         print("  🔗 JSON API - Ready for JIRA REST API bulk import")
         print("  📝 Production Markdown - Human-readable with all fields")
-        print("  ✅ Tasks.md Format - Kiro-compatible for continued development")
+        print("  ✅ Tasks.md Format - OpenFlux-compatible for continued development")
         print("  ⚙️ Advanced Configuration - Assignee, Epic, Story Points, etc.")
         print("  🌐 Online/Offline Modes - Direct JIRA or template generation")
         print("  📥 Quick Downloads - All formats available instantly")
@@ -314,6 +314,6 @@ if __name__ == "__main__":
         print("  - Enterprise JIRA environments")
         print("  - Project management workflows") 
         print("  - Development team coordination")
-        print("  - Spec-driven development with Kiro")
+        print("  - Spec-driven development with OpenFlux")
     
     exit(0 if (success1 and success2) else 1)

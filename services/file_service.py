@@ -142,7 +142,7 @@ class FileService:
         
         try:
             # Create temporary directory
-            temp_dir = tempfile.mkdtemp(prefix="kiro_project_")
+            temp_dir = tempfile.mkdtemp(prefix="openflux_project_")
             
             # Extract ZIP file
             with zipfile.ZipFile(uploaded_file, 'r') as zip_ref:

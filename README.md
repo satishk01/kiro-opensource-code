@@ -1,6 +1,6 @@
-# Kiro Streamlit App
+# OpenFlux Streamlit App
 
-A web-based implementation of Kiro's AI development assistant capabilities, built with Streamlit and integrated with AWS Bedrock for AI model access.
+A web-based implementation of OpenFlux's AI development assistant capabilities, built with Streamlit and integrated with AWS Bedrock for AI model access.
 
 ## Features
 
@@ -9,7 +9,7 @@ A web-based implementation of Kiro's AI development assistant capabilities, buil
 - **Spec Generation**: Create requirements, design documents, and implementation tasks
 - **JIRA Integration**: Automatically create JIRA tickets from generated tasks
 - **Diagram Generation**: Create ER diagrams and data flow diagrams from code
-- **Kiro-Style UI**: Familiar interface matching Kiro's look and feel
+- **OpenFlux-Style UI**: Familiar interface matching OpenFlux's look and feel
 - **Security**: Comprehensive input validation and security measures
 - **Monitoring**: Built-in logging and CloudWatch integration
 
@@ -26,7 +26,7 @@ A web-based implementation of Kiro's AI development assistant capabilities, buil
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd kiro-streamlit-app
+   cd openflux-streamlit-app
    ```
 
 2. **Install dependencies**
@@ -60,7 +60,7 @@ A web-based implementation of Kiro's AI development assistant capabilities, buil
 1. **Use CloudFormation template**
    ```bash
    aws cloudformation create-stack \
-     --stack-name kiro-app \
+     --stack-name openflux-app \
      --template-body file://deploy/cloudformation-template.yaml \
      --parameters ParameterKey=KeyPairName,ParameterValue=your-key-pair \
                   ParameterKey=VpcId,ParameterValue=vpc-xxxxxxxx \
@@ -92,6 +92,36 @@ The EC2 instance needs the following permissions:
 - `s3:*` for file storage (optional)
 
 See `deploy/iam-policy.json` for the complete policy.
+
+### MCP Server Configuration
+
+For enhanced AWS diagram generation, install UV and UVX:
+
+```bash
+# Install UV (Python package manager)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# UVX is included with UV
+# The AWS diagram MCP server will be auto-configured
+```
+
+The MCP configuration is automatically created at `.openflux/settings/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "awslabs.aws-diagram-mcp-server": {
+      "command": "uvx",
+      "args": ["awslabs.aws-diagram-mcp-server"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "autoApprove": [],
+      "disabled": false
+    }
+  }
+}
+```
 
 ## Usage
 
@@ -127,7 +157,10 @@ See `deploy/iam-policy.json` for the complete policy.
 ### 6. Diagram Generation
 - Generate ER diagrams from data models
 - Create data flow diagrams from code analysis
-- Export diagrams in various formats
+- Generate AWS architecture diagrams using MCP server
+- Create sequence diagrams for API interactions
+- Generate class diagrams for object-oriented code
+- Export diagrams in Mermaid and HTML formats
 
 ## Architecture
 
@@ -155,7 +188,10 @@ See `deploy/iam-policy.json` for the complete policy.
 │                 │    │                 │
 │  - Ticket Mgmt  │    │  - ER Diagrams  │
 │  - Status Track │    │  - Data Flow    │
-│  - Bulk Create  │    │  - Mermaid      │
+│  - Bulk Create  │    │  - AWS Arch     │
+│                 │    │  - Sequence     │
+│                 │    │  - Class        │
+│                 │    │  - MCP Server   │
 └─────────────────┘    └─────────────────┘
 ```
 

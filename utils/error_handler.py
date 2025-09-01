@@ -1,5 +1,5 @@
 """
-Comprehensive error handling for the Kiro Streamlit app
+Comprehensive error handling for the OpenFlux Streamlit app
 """
 import streamlit as st
 import logging
@@ -16,27 +16,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class KiroError(Exception):
-    """Base exception class for Kiro application errors"""
+class OpenFluxError(Exception):
+    """Base exception class for OpenFlux application errors"""
     def __init__(self, message: str, error_code: str = None, details: Dict = None):
         self.message = message
         self.error_code = error_code
         self.details = details or {}
         super().__init__(self.message)
 
-class AWSBedrockError(KiroError):
+class AWSBedrockError(OpenFluxError):
     """Errors related to AWS Bedrock service"""
     pass
 
-class FileSystemError(KiroError):
+class FileSystemError(OpenFluxError):
     """Errors related to file system operations"""
     pass
 
-class JIRAIntegrationError(KiroError):
+class JIRAIntegrationError(OpenFluxError):
     """Errors related to JIRA integration"""
     pass
 
-class ValidationError(KiroError):
+class ValidationError(OpenFluxError):
     """Errors related to input validation"""
     pass
 
@@ -172,12 +172,12 @@ def error_boundary(error_message: str = "An error occurred"):
         def wrapper(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
-            except KiroError as e:
+            except OpenFluxError as e:
                 st.error(f"🚨 {e.message}")
                 if e.details:
                     with st.expander("Error Details"):
                         st.json(e.details)
-                logger.error(f"KiroError in {func.__name__}: {e.message}")
+                logger.error(f"OpenFluxError in {func.__name__}: {e.message}")
             except Exception as e:
                 st.error(f"🚨 {error_message}: {str(e)}")
                 logger.error(f"Unexpected error in {func.__name__}: {str(e)}")
