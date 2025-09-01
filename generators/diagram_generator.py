@@ -352,11 +352,55 @@ Use proper AWS service icons and official AWS colors."""
         """Generate a basic ER diagram when AI generation fails"""
         if not model_files:
             return """erDiagram
-    ENTITY {
+    USER {
+        id int PK
+        email string UK
+        password_hash string
+        role string
+        created_at datetime
+        last_login datetime
+    }
+    
+    SESSION {
+        session_id string PK
+        user_id int FK
+        expires_at datetime
+        created_at datetime
+    }
+    
+    USER ||--o{ SESSION : has"""
+        
+        # Check if this is spec-based content
+        spec_indicators = ['requirements.md', 'design.md', 'tasks.md', 'description.txt']
+        is_spec_based = any(indicator in model_files for indicator in spec_indicators)
+        
+        if is_spec_based:
+            # Generate spec-appropriate ER diagram
+            return """erDiagram
+    USER {
+        id int PK
+        email string UK
+        password_hash string
+        role string
+        created_at datetime
+        last_login datetime
+    }
+    
+    SESSION {
+        session_id string PK
+        user_id int FK
+        expires_at datetime
+        created_at datetime
+    }
+    
+    ROLE {
         id int PK
         name string
-        created_at datetime
-    }"""
+        permissions text
+    }
+    
+    USER ||--o{ SESSION : has
+    USER }o--|| ROLE : assigned"""
         
         entities = []
         for file_path in model_files.keys():
@@ -423,6 +467,31 @@ Use proper AWS service icons and official AWS colors."""
     
     def _generate_fallback_sequence_diagram(self, api_files: Dict, service_files: Dict) -> str:
         """Generate a basic sequence diagram when AI generation fails"""
+        # Check if this is spec-based content
+        spec_indicators = ['requirements.md', 'design.md', 'tasks.md', 'description.txt']
+        all_files = {**api_files, **service_files}
+        is_spec_based = any(indicator in all_files for indicator in spec_indicators)
+        
+        if is_spec_based:
+            # Check content for authentication/login context
+            all_content = ' '.join(all_files.values()).lower()
+            if any(keyword in all_content for keyword in ['login', 'auth', 'user', 'session']):
+                return """sequenceDiagram
+    participant User
+    participant Frontend
+    participant AuthAPI as Auth API
+    participant AuthService as Auth Service
+    participant Database
+    
+    User->>+Frontend: Enter credentials
+    Frontend->>+AuthAPI: POST /login
+    AuthAPI->>+AuthService: validate_credentials()
+    AuthService->>+Database: query user
+    Database-->>-AuthService: user data
+    AuthService-->>-AuthAPI: validation result
+    AuthAPI-->>-Frontend: JWT token
+    Frontend-->>-User: Login success"""
+        
         return """sequenceDiagram
     participant User
     participant API as API Layer

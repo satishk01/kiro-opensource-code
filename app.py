@@ -652,8 +652,86 @@ def show_diagrams():
                 st.session_state.spec_workflow_state.get('requirements_content') and
                 st.session_state.spec_workflow_state.get('design_content'))
     
+    # Debug information (can be removed in production)
+    with st.expander("🔍 Debug Information"):
+        st.write("**Content Sources Available:**")
+        st.write(f"- Codebase loaded: {has_codebase} ({len(st.session_state.loaded_files) if st.session_state.loaded_files else 0} files)")
+        st.write(f"- Spec content available: {has_spec}")
+        
+        if hasattr(st.session_state, 'spec_workflow_state'):
+            workflow_state = st.session_state.spec_workflow_state
+            st.write("**Spec Workflow State:**")
+            st.write(f"- Requirements: {'✅' if workflow_state.get('requirements_content') else '❌'}")
+            st.write(f"- Design: {'✅' if workflow_state.get('design_content') else '❌'}")
+            st.write(f"- Tasks: {'✅' if workflow_state.get('tasks_content') else '❌'}")
+        
+        if hasattr(st.session_state, 'completed_spec'):
+            st.write(f"- Completed spec: {'✅' if st.session_state.completed_spec else '❌'}")
+    
     if not has_codebase and not has_spec:
         st.warning("⚠️ Please either load a project folder in 'Folder Analysis' or create requirements and design in 'Spec Generation'.")
+        
+        # Provide helpful guidance
+        st.info("""
+        **To generate diagrams, you need either:**
+        
+        1. **Project Files**: Go to 'Folder Analysis' and load your project folder
+        2. **Spec Documents**: Go to 'Spec Generation' and create requirements + design documents
+        
+        Once you have either source, you can return here to generate diagrams.
+        """)
+        
+        # Manual override option
+        st.markdown("---")
+        st.subheader("🎯 Manual Diagram Generation")
+        st.markdown("Or generate diagrams manually by describing what you want to visualize:")
+        
+        manual_description = st.text_area(
+            "Describe your system or feature:",
+            placeholder="e.g., User authentication system with login, registration, JWT tokens, and role-based access control",
+            help="Describe the system, feature, or architecture you want to visualize"
+        )
+        
+        if manual_description and st.button("🚀 Generate from Description", type="primary"):
+            # Create synthetic content from description
+            synthetic_codebase = {
+                "description.txt": manual_description,
+                "system_overview.md": f"# System Overview\n\n{manual_description}"
+            }
+            
+            # Initialize diagram generator if not already done
+            if 'diagram_generator' not in st.session_state:
+                from generators.diagram_generator import DiagramGenerator
+                from services.mcp_service import MCPService
+                
+                mcp_service = MCPService()
+                st.session_state.diagram_generator = DiagramGenerator(st.session_state.ai_service, mcp_service)
+            
+            # Auto-detect diagram type
+            detected_type = st.session_state.diagram_generator.detect_diagram_type(manual_description)
+            
+            with st.spinner(f"🧠 Generating {detected_type} diagram from description..."):
+                try:
+                    diagram_code = st.session_state.diagram_generator.generate_diagram_by_type(
+                        detected_type, 
+                        synthetic_codebase
+                    )
+                    
+                    if diagram_code:
+                        st.session_state.generated_diagram = {
+                            'code': diagram_code,
+                            'type': detected_type,
+                            'timestamp': "Manual generation",
+                            'source': 'manual_description'
+                        }
+                        st.success(f"✅ {detected_type.title()} diagram generated successfully!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to generate diagram")
+                        
+                except Exception as e:
+                    st.error(f"❌ Diagram generation failed: {str(e)}")
+        
         return
     
     # Determine content source
