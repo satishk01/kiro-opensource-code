@@ -645,25 +645,43 @@ def show_diagrams():
         st.warning("⚠️ Please select and connect to an AI model first from the sidebar.")
         return
     
-    # Check if codebase is loaded OR if we have completed spec content
+    # Check if codebase is loaded OR if we have spec workflow content
     has_codebase = bool(st.session_state.loaded_files)
-    has_spec = hasattr(st.session_state, 'completed_spec') and st.session_state.completed_spec
+    has_spec = (hasattr(st.session_state, 'completed_spec') and st.session_state.completed_spec) or \
+               (hasattr(st.session_state, 'spec_workflow_state') and 
+                st.session_state.spec_workflow_state.get('requirements_content') and
+                st.session_state.spec_workflow_state.get('design_content'))
     
     if not has_codebase and not has_spec:
-        st.warning("⚠️ Please either load a project folder in 'Folder Analysis' or complete a spec in 'Spec Generation'.")
+        st.warning("⚠️ Please either load a project folder in 'Folder Analysis' or create requirements and design in 'Spec Generation'.")
         return
     
     # Determine content source
     if has_spec:
         content_source = "spec"
-        st.info("📋 Using content from completed spec documents")
+        st.info("📋 Using content from spec documents")
+        
+        # Get spec content from either completed spec or workflow state
+        if hasattr(st.session_state, 'completed_spec') and st.session_state.completed_spec:
+            spec_content = st.session_state.completed_spec
+        else:
+            # Use workflow state content
+            workflow_state = st.session_state.spec_workflow_state
+            spec_content = {
+                'feature_description': workflow_state.get('feature_description', ''),
+                'requirements': workflow_state.get('requirements_content', ''),
+                'design': workflow_state.get('design_content', ''),
+                'tasks': workflow_state.get('tasks_content', '')
+            }
         
         # Show spec content summary
-        spec_content = st.session_state.completed_spec
         with st.expander("📄 Spec Content Summary"):
             col1, col2 = st.columns(2)
             with col1:
-                st.write("**Feature:**", spec_content.get('feature_description', 'Not available')[:100] + "...")
+                feature_desc = spec_content.get('feature_description', 'Not available')
+                if len(feature_desc) > 100:
+                    feature_desc = feature_desc[:100] + "..."
+                st.write("**Feature:**", feature_desc)
                 st.write("**Requirements:**", "✅ Available" if spec_content.get('requirements') else "❌ Missing")
             with col2:
                 st.write("**Design:**", "✅ Available" if spec_content.get('design') else "❌ Missing")
@@ -791,8 +809,20 @@ def show_diagrams():
             try:
                 # Prepare content and analysis context
                 if content_source == "spec":
+                    # Get spec content from either completed spec or workflow state
+                    if hasattr(st.session_state, 'completed_spec') and st.session_state.completed_spec:
+                        spec_content = st.session_state.completed_spec
+                    else:
+                        # Use workflow state content
+                        workflow_state = st.session_state.spec_workflow_state
+                        spec_content = {
+                            'feature_description': workflow_state.get('feature_description', ''),
+                            'requirements': workflow_state.get('requirements_content', ''),
+                            'design': workflow_state.get('design_content', ''),
+                            'tasks': workflow_state.get('tasks_content', '')
+                        }
+                    
                     # Create synthetic codebase from spec content
-                    spec_content = st.session_state.completed_spec
                     synthetic_codebase = {
                         "requirements.md": spec_content.get('requirements', ''),
                         "design.md": spec_content.get('design', ''),
